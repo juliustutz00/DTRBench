@@ -22,24 +22,13 @@ defaults:
   resource_benchmark_similarity: true
 
 run:
-  - representations: ["Tree Descriptor", "Leaf Profile", "Feature Graph", "Topological Forest", "INDTree"]
-    perturbations: ["change_threshold", "change_feature", "swap_nodes", "remove_nodes", "add_nodes"]
-    subforest_sizes: [2, 3, 5, 10, 15, 20, 25, 30]
+  - subforest_sizes: [2, 3, 5, 10]
     selection_strategies: ["k-medoid", "k-medoid-performance", "agglomerative", "agglomerative-performance", "density", "combination-greedy", "combination-simulated_annealing", "combination-genetic"]
-    output_dir: "C:/work/DTR_bench/DTRBench/results"
-    perturbation_benchmark_results_path: "C:/work/DTR_bench/DTRBench/results/perturbation_benchmark_results/20260731T054553Z_run1_iris_perturbation_benchmark.csv"
-    subforest_selection_results_path: "C:/work/DTR_bench/DTRBench/results/subforest_benchmark_results/20260731T054553Z_run1_iris_subforest_benchmark.csv"
-    resource_benchmark_represent_results_path: "C:/work/DTR_bench/DTRBench/results/resource_benchmark_results/20260731T054553Z_run1_iris_resource_benchmark_represent.csv"
-    resource_benchmark_similarity_results_path: "C:/work/DTR_bench/DTRBench/results/resource_benchmark_results/20260731T054553Z_run1_iris_resource_benchmark_similarity.csv"
-    rep_similarity_vs_performance_feature_importance: true
-    similarity_vs_intensity_per_perturbation: true
-    rf_compression: true
-    mcc_boxplots: true
-    mcc_representation_selection_strategy: true
-    std_representation_selection_strategy: true
-    kendalls_w_vs_config: true
-    spearman_vs_subforest_size: true
-    representation_vs_subforest_size: true
-    config_vs_subforest_size: true
-    resource_benchmark_represent: true
-    resource_benchmark_similarity: true
+    output_dir: "path/to/your/output/dir"
+    perturbation_benchmark_results_path: "path/to/your/perturbation_benchmark_results.csv"
+    subforest_selection_results_path: "path/to/your/subforest_benchmark_results.csv"
+    resource_benchmark_represent_results_path: "path/to/your/resource_benchmark_represent_results.csv"
+    resource_benchmark_similarity_results_path:  "path/to/your/resource_benchmark_siimlarity_results.csv"
+    mcc_representation_selection_strategy: false
+    std_representation_selection_strategy: false
+    config_vs_subforest_size: false
