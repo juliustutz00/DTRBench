@@ -9,30 +9,24 @@ defaults:
   existing_resource_represent_results_path: 
   existing_resource_similarity_results_path: 
   dataset: iris                           
-  n_splits: 3                             # [1, |dataset|)
-  n_samples: 100000                        # [1, +inf)
+  n_splits: 3
+  n_samples: 100000
   representations: ["Feature Graph", "Tree Descriptor", "Leaf Profile", "Topological Forest", "INDTree"]
   perturbations: ["change_threshold", "change_feature", "swap_nodes", "remove_nodes", "add_nodes"]
-  intensities: [0.2, 0.4, 0.6, 0.8, 1]    # [0, 1]
-  random_forest_size: 300                 # [1, +inf)
-  subforest_size: [5, 10, 15, 20]         # [1, random_forest_size)
+  intensities: [0.2, 0.4, 0.6, 0.8, 1]
+  random_forest_size: 300
+  subforest_size: [5, 10, 15, 20]
   selection_strategies: ["k-medoid", "k-medoid-performance", "agglomerative", "agglomerative-performance", "density", "combination-greedy", "combination-simulated_annealing", "combination-genetic"]
-  resource_benchmark_sizes: [5, 10, 15, 20, 25, 30]           # [1, random_forest_size)
+  resource_benchmark_sizes: [5, 10, 15, 20, 25, 30]
 
 runs:
   - perturbation_benchmark: true
     subforest_benchmark: true
     resource_benchmark: true
+    existing_perturbation_results_path: "path/to/your/file.csv"
     dataset: iris
     representations: ["Tree Descriptor", "Leaf Profile", "Feature Graph", "Topological Forest", "INDTree"]
-    random_forest_size: 4
-    subforest_size: [2, 3] #[2, 5, 10, 15, 20, 25, 30, 50, 100, 250, 500, 750, 1000] #sizes = np.round(np.geomspace(2, 1000, 10)).astype(int)
+    random_forest_size: 100
+    subforest_size: [2, 5, 10, 15, 20, 25, 30, 50] 
     selection_strategies: ["k-medoid", "k-medoid-performance", "agglomerative", "agglomerative-performance", "density", "combination-greedy", "combination-simulated_annealing", "combination-genetic"]
-    resource_benchmark_sizes: [2, 3]
-
-
-    
-
-  
-  
-  
+    resource_benchmark_sizes: [2, 5, 10, 15, 20]
