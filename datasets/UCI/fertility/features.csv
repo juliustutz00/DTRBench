@@ -1,0 +1,11 @@
+name,role,type,demographic,description,units,missing_values
+season,Feature,Continuous,,,,no
+age,Feature,Integer,Age,,,no
+child_diseases,Feature,Binary,,,,no
+accident,Feature,Binary,,,,no
+surgical_intervention,Feature,Binary,,,,no
+high_fevers,Feature,Categorical,,,,no
+alcohol,Feature,Categorical,,,,no
+smoking,Feature,Categorical,,,,no
+hrs_sitting,Feature,Integer,,,,no
+diagnosis,Target,Binary,,,,no

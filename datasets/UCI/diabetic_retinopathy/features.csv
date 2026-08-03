@@ -1,0 +1,21 @@
+name,role,type,demographic,description,units,missing_values
+quality,Feature,Binary,,The binary result of quality assessment. 0 = bad quality 1 = sufficient quality.,,no
+pre_screening,Feature,Binary,,"The binary result of pre-screening, where 1 indicates severe retinal abnormality and 0 its lack.",,no
+ma1,Feature,Integer,,"ma1 - ma-6 contain the results of MA detection. Each feature value stand for the number of MAs found at the confidence levels alpha = 0.5, . . . , 1, respectively.",,no
+ma2,Feature,Integer,,,,no
+ma3,Feature,Integer,,,,no
+ma4,Feature,Integer,,,,no
+ma5,Feature,Integer,,,,no
+ma6,Feature,Integer,,,,no
+exudate1,Feature,Continuous,,"exudate1 - exudate8 contain the same information as 2-7) for exudates. However, as exudates are represented by a set of points rather than the number of pixels constructing the lesions, these features are normalized by dividing the number of lesions with the diameter of the ROI to compensate different image sizes.",,no
+exudate2,Feature,Continuous,,,,no
+exudate3,Feature,Continuous,,,,no
+exudate3,Feature,Continuous,,,,no
+exudate5,Feature,Continuous,,,,no
+exudate6,Feature,Continuous,,,,no
+exudate7,Feature,Continuous,,,,no
+exudate8,Feature,Continuous,,,,no
+macula_opticdisc_distance,Feature,Continuous,,The euclidean distance of the center of the macula and the center of the optic disc to provide important information regarding the patient's condition. This feature is also normalized with the diameter of the ROI.,,no
+opticdisc_diameter,Feature,Continuous,,The diameter of the optic disc.,,no
+am_fm_classification,Feature,Binary,,The binary result of the AM/FM-based classification.,,no
+Class,Target,Binary,,"Class label. 1 = contains signs of DR (Accumulative label for the Messidor classes 1, 2, 3), 0 = no signs of DR.",,no

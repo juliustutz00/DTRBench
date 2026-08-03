@@ -1,0 +1,21 @@
+name,role,type,demographic,description,units,missing_values
+ID,ID,Integer,,unique identifier,,no
+N_Days,Other,Integer,,"number of days between registration and the earlier of death, transplantation, or study analysis time in July 1986",,no
+Status,Target,Categorical,,"status of the patient C (censored), CL (censored due to liver tx), or D (death)",,no
+Drug,Feature,Categorical,,type of drug D-penicillamine or placebo,,yes
+Age,Feature,Integer,Age,age,days,no
+Sex,Feature,Categorical,Sex,M (male) or F (female),,no
+Ascites,Feature,Categorical,,presence of ascites N (No) or Y (Yes),,yes
+Hepatomegaly,Feature,Categorical,,presence of hepatomegaly N (No) or Y (Yes),,yes
+Spiders,Feature,Categorical,,presence of spiders N (No) or Y (Yes),,yes
+Edema,Feature,Categorical,,"presence of edema N (no edema and no diuretic therapy for edema), S (edema present without diuretics, or edema resolved by diuretics), or Y (edema despite diuretic therapy)",,no
+Bilirubin,Feature,Continuous,,serum bilirubin,mg/dl,no
+Cholesterol,Feature,Integer,,serum cholesterol,mg/dl,yes
+Albumin,Feature,Continuous,,albumin,gm/dl,no
+Copper,Feature,Integer,,urine copper,ug/day,yes
+Alk_Phos,Feature,Continuous,,alkaline phosphatase,U/liter,yes
+SGOT,Feature,Continuous,,SGOT,U/ml,yes
+Tryglicerides,Feature,Integer,,tryglicerides,,yes
+Platelets,Feature,Integer,,platelets per cubic,ml/1000,yes
+Prothrombin,Feature,Continuous,,prothrombin time,s,yes
+Stage,Feature,Categorical,,"histologic stage of disease (1, 2, 3, or 4)",,yes

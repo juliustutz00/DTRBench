@@ -1,0 +1,20 @@
+name,role,type,demographic,description,units,missing_values
+COMPACTNESS,Feature,Integer,,,,no
+CIRCULARITY,Feature,Integer,,,,no
+DISTANCE CIRCULARITY,Feature,Integer,,,,no
+RADIUS RATIO,Feature,Integer,,,,no
+PR.AXIS ASPECT RATIO,Feature,Integer,,,,no
+MAX.LENGTH ASPECT RATIO,Feature,Integer,,,,no
+SCATTER RATIO,Feature,Integer,,,,no
+ELONGATEDNESS,Feature,Integer,,,,no
+PR.AXIS RECTANGULARITY,Feature,Integer,,,,no
+MAX.LENGTH RECTANGULARITY,Feature,Integer,,,,no
+SCALED VARIANCE ALONG MAJOR AXIS,Feature,Integer,,,,no
+SCALED VARIANCE ALONG MINOR AXIS,Feature,Integer,,,,no
+SCALED RADIUS OF GYRATION,Feature,Integer,,,,no
+SKEWNESS ABOUT MAJOR AXIS,Feature,Integer,,,,no
+SKEWNESS ABOUT MINOR AXIS,Feature,Integer,,,,no
+KURTOSIS ABOUT MINOR AXIS,Feature,Integer,,,,no
+KURTOSIS ABOUT MAJOR AXIS,Feature,Integer,,,,no
+HOLLOWS RATIO,Feature,Integer,,,,no
+class,Target,Categorical,,,,no

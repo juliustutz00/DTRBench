@@ -1,0 +1,9 @@
+name,role,type,demographic,description,units,missing_values
+class,Target,Binary,,,,no
+a1,Feature,Integer,,,,no
+a2,Feature,Integer,,,,no
+a3,Feature,Integer,,,,no
+a4,Feature,Integer,,,,no
+a5,Feature,Integer,,,,no
+a6,Feature,Integer,,,,no
+ID,ID,Categorical,,,,no

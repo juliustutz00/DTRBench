@@ -1,0 +1,8 @@
+name,role,type,demographic,description,units,missing_values
+pelvic_incidence,Feature,Continuous,,,,no
+pelvic_tilt,Feature,Continuous,,,,no
+lumbar_lordosis_angle,Feature,Continuous,,,,no
+sacral_slope,Feature,Continuous,,,,no
+pelvic_radius,Feature,Continuous,,,,no
+degree_spondylolisthesis,Feature,Continuous,,,,no
+class,Target,Categorical,,,,no

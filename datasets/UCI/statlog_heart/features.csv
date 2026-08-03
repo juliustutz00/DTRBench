@@ -1,0 +1,15 @@
+name,role,type,demographic,description,units,missing_values
+age,Feature,Continuous,Age,,,no
+sex,Feature,Binary,Sex,,,no
+chest-pain,Feature,Categorical,,chest pain type,,no
+rest-bp,Feature,Continuous,,resting blood pressure,,no
+serum-chol,Feature,Continuous,,serum cholesterol,mg/dl,no
+fasting-blood-sugar,Feature,Binary,,fasting blood sugar > 120 mg/dl,,no
+electrocardiographic,Feature,Categorical,,resting electrocardiographic results,,no
+max-heart-rate,Feature,Continuous,,maximum heart rate achieved,,no
+angina,Feature,Binary,,exercise induced anigna,,no
+oldpeak,Feature,Continuous,,oldpeak = ST depression induced by exercise relative to rest,,no
+slope,Feature,Integer,,the slope of the peak exercise ST sgment,,no
+major-vessels,Feature,Continuous,,number of major vessels (0-3) colored by fluorosopy,,no
+thal,Feature,Categorical,,thal: 3 = normal; 6 = fixed defect; 7 = reversable defect,,no
+heart-disease,Target,Integer,,,,no

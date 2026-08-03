@@ -1,0 +1,22 @@
+name,role,type,demographic,description,units,missing_values
+Attribute1,Feature,Categorical,,Status of existing checking account,,no
+Attribute2,Feature,Integer,,Duration,months,no
+Attribute3,Feature,Categorical,,Credit history,,no
+Attribute4,Feature,Categorical,,Purpose,,no
+Attribute5,Feature,Integer,,Credit amount,,no
+Attribute6,Feature,Categorical,,Savings account/bonds,,no
+Attribute7,Feature,Categorical,Other,Present employment since,,no
+Attribute8,Feature,Integer,,Installment rate in percentage of disposable income,,no
+Attribute9,Feature,Categorical,Marital Status,Personal status and sex,,no
+Attribute10,Feature,Categorical,,Other debtors / guarantors,,no
+Attribute11,Feature,Integer,,Present residence since,,no
+Attribute12,Feature,Categorical,,Property,,no
+Attribute13,Feature,Integer,Age,Age,years,no
+Attribute14,Feature,Categorical,,Other installment plans,,no
+Attribute15,Feature,Categorical,Other,Housing,,no
+Attribute16,Feature,Integer,,Number of existing credits at this bank,,no
+Attribute17,Feature,Categorical,Occupation,Job,,no
+Attribute18,Feature,Integer,,Number of people being liable to provide maintenance for,,no
+Attribute19,Feature,Binary,,Telephone,,no
+Attribute20,Feature,Binary,Other,foreign worker,,no
+class,Target,Binary,,"1 = Good, 2 = Bad",,no

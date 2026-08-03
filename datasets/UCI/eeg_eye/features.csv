@@ -1,0 +1,16 @@
+name,role,type,demographic,description,units,missing_values
+AF3,Feature,Continuous,,,,no
+F7,Feature,Continuous,,,,no
+F3,Feature,Continuous,,,,no
+FC5,Feature,Continuous,,,,no
+T7,Feature,Continuous,,,,no
+P7,Feature,Continuous,,,,no
+O1,Feature,Continuous,,,,no
+O2,Feature,Continuous,,,,no
+P8,Feature,Continuous,,,,no
+T8,Feature,Continuous,,,,no
+FC6,Feature,Continuous,,,,no
+F4,Feature,Continuous,,,,no
+F8,Feature,Continuous,,,,no
+AF4,Feature,Continuous,,,,no
+eyeDetection,Target,Integer,,,,no

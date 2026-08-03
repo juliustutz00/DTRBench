@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "dtrbench"
+version = "0.1.0"
+description = "Benchmarking framework for decision tree representations"
+requires-python = "==3.10.*"
+
+dependencies = [
+    "kmapper",
+    "learn2learn",
+    "numpy<2",
+    "pandas",
+    "POT",
+    "pytorch-lightning",
+    "PyYAML",
+    "scikit-learn",
+    "scikit-learn-extra",
+    "torch",
+    "matplotlib",
+    "networkx",
+    "openTSNE",
+    "seaborn",
+    "scipy",
+    "ucimlrepo",
+]
+
+
+[project.scripts]
+dtrbench = "dtrbench.cli:main"
+
+
+[tool.setuptools.packages.find]
+where = ["."]

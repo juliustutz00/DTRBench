@@ -1,0 +1,41 @@
+name,role,type,demographic,description,units,missing_values
+timestamp,Feature,Integer,,,,no
+cylinder number,Feature,Categorical,,,,no
+customer,Feature,Categorical,,,,no
+job number,Feature,Integer,,,,no
+grain screened,Feature,Categorical,,,,no
+ink color,Feature,Categorical,,,,no
+proof on ctd ink,Feature,Categorical,,,,no
+blade mfg,Feature,Categorical,,,,no
+cylinder division,Feature,Categorical,,,,no
+paper type,Feature,Categorical,,,,no
+ink type,Feature,Categorical,,,,no
+direct steam,Feature,Categorical,,,,no
+solvent type,Feature,Categorical,,,,no
+type on cylinder,Feature,Categorical,,,,no
+press type,Feature,Categorical,,,,no
+press,Feature,Integer,,,,no
+unit number,Feature,Integer,,,,no
+cylinder size,Feature,Categorical,,,,no
+paper mill location,Feature,Categorical,,,,no
+plating tank,Feature,Integer,,,,no
+proof cut,Feature,Categorical,,,,no
+viscosity,Feature,Integer,,,,no
+caliper,Feature,Continuous,,,,no
+ink temperature,Feature,Continuous,,,,no
+humidity,Feature,Integer,,,,no
+roughness,Feature,Continuous,,,,no
+blade pressure,Feature,Integer,,,,no
+varnish pct,Feature,Categorical,,,,no
+press speed,Feature,Integer,,,,no
+ink pct,Feature,Categorical,,,,no
+solvent pct,Feature,Categorical,,,,no
+esa voltage,Feature,Categorical,,,,no
+esa amperage,Feature,Categorical,,,,no
+wax,Feature,Continuous,,,,no
+hardener,Feature,Integer,,,,no
+roller durometer,Feature,Categorical,,,,no
+current density,Feature,Integer,,,,no
+anode space ratio,Feature,Continuous,,,,no
+chrome content,Feature,Integer,,,,no
+band type,Target,Binary,,,,no

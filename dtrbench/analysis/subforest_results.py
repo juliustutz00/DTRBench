@@ -1,0 +1,1466 @@
+"""
+Plotting and reporting functions for the subforest benchmark.
+
+This module provides functions to analyze the results of the subforest benchmark runs and generate plots and statistics.
+It works with results files containing one or multiple datasets.
+If multiple datasets are present, the results will be aggregated across datasets for the plots and statistics.
+"""
+
+import ast
+
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from matplotlib.patches import Patch
+from scipy.stats import spearmanr, wilcoxon
+
+
+def read_subforest_selection_result(results_path, REP_NAMES, SUBFOREST_SIZES):
+    """Read and process the subforest selection results from a CSV file.
+    
+    Args:
+        results_path (str): Path to the CSV file containing the subforest selection results.
+        REP_NAMES (list[str]): List of representation names to filter the results.
+        SUBFOREST_SIZES (list[int]): List of subforest sizes to filter the results.
+        
+    Returns:
+        dict: A dictionary containing processed dataframes for representations, baselines, full forest, and single decision tree.
+    """
+    subf_df = pd.read_csv(results_path)
+
+    col_map = {
+        "dataset": "Dataset",
+        "seed": "Seed",
+        "fold": "Fold",
+        "representation": "Representation",
+        "selection_strategy": "Selection Strategy",
+        "full_forest_size": "Full Forest Size",
+        "subforest_size": "Subforest Size",
+        "acc": "Accuracy",
+        "macro_f1": "Macro F1",
+        "mcc": "MCC",
+        "roc_auc": "ROC AUC",
+        "pr_auc": "PR AUC",
+        "minority_class": "Minority Class",
+        "minority_support": "Minority Support",
+        "minority_precision": "Minority Precision",
+        "minority_recall": "Minority Recall",
+        "minority_f1": "Minority F1",
+        "feature_importances": "Feature Importances",
+        "silhouette_score": "Silhouette Score",
+        "agreement_with_full_forest": "Agreement with Full Forest",
+        "indices": "Subforest Indices",
+    }
+    results_df = subf_df.rename(columns=col_map)
+
+    baselines = ["Random", "Top OOB ACC", "Top OOB MCC"]
+    results_df["is_baseline"] = results_df["Selection Strategy"].isin(baselines)
+    results_df["is_full_forest"] = results_df["Selection Strategy"].isnull()
+    full_forest_size = results_df["Full Forest Size"][0]
+
+    subforest_sizes = (
+        results_df["Subforest Size"]
+        .dropna()
+        .loc[lambda s: ~s.isin([1, full_forest_size])]
+        .unique()
+        .tolist()
+    )
+
+    _rep = results_df[
+        results_df["Representation"].isin(REP_NAMES)
+        & results_df["Subforest Size"].isin(subforest_sizes)
+    ].copy()
+    _bl = results_df[
+        results_df["Representation"].isin(baselines)
+        & results_df["Subforest Size"].isin(subforest_sizes)
+    ].copy()
+    _ff = results_df[results_df["Representation"] == "Full Forest"].copy()
+    _dt = results_df[results_df["Representation"] == "Single DT"].copy()
+
+    shared_values = {
+        "subforest_sizes": subforest_sizes,
+        "rep": _rep,
+        "bl": _bl,
+        "ff": _ff,
+        "dt": _dt,
+    }
+
+    if SUBFOREST_SIZES is not None:
+        allowed_sizes = set(SUBFOREST_SIZES)
+        shared_values["rep"] = shared_values["rep"][
+            shared_values["rep"]["Subforest Size"].isin(allowed_sizes)
+        ]
+        shared_values["bl"] = shared_values["bl"][
+            shared_values["bl"]["Subforest Size"].isin(allowed_sizes)
+        ]
+        shared_values["subforest_sizes"] = sorted(
+            shared_values["rep"]["Subforest Size"].unique().tolist()
+        )
+
+    return shared_values
+
+
+def plot_rf_compression(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
+    """Plot the Random Forest Compression results, showing the relationship between subforest size and mean MCC for different representations and selection strategies.
+    
+    Args:
+        shared_values (dict): Dictionary containing processed dataframes for different categories.
+        output_dir (str): Directory where the plots will be saved.
+        REP_NAMES (list[str]): List of representation names to be considered.
+        SEL_STRATEGIES (list[str]): List of selection strategies to be considered.
+    """
+
+    def _plot_line_plot(df, aggregate_values):
+        sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+        palette = sns.color_palette("colorblind")
+
+        # Compute mean MCC per subforest size for each series
+        if aggregate_values == "both":
+            # one averaged line
+            rep_lines = {
+                "Representation-based Methods": df["rep"]
+                .groupby("Subforest Size")["MCC"]
+                .mean()
+                .reset_index()
+            }
+        elif aggregate_values == "Representation":
+            # average over representations -> one line per selection strategy
+            # rep_lines = {strategy: d.groupby("Subforest Size")["MCC"].mean().reset_index() for strategy, d in df["rep"].groupby("Selection Strategy")}
+            rep_lines = {}
+            for rep in REP_NAMES:
+                d = df["rep"][df["rep"]["Representation"] == rep]
+                if not d.empty:
+                    rep_lines[rep] = (
+                        d.groupby("Subforest Size")["MCC"].mean().reset_index()
+                    )
+        elif aggregate_values == "Selection Strategy":
+            # average over selection strategies -> one line per representation
+            # rep_lines = {rep: d.groupby("Subforest Size")["MCC"].mean().reset_index() for rep, d in df["rep"].groupby("Representation")}
+            rep_lines = {}
+            for strategy in SEL_STRATEGIES:
+                d = df["rep"][df["rep"]["Selection Strategy"] == strategy]
+                if not d.empty:
+                    rep_lines[strategy] = (
+                        d.groupby("Subforest Size")["MCC"].mean().reset_index()
+                    )
+        _bl_lines = {}
+        for _rep in ["Random", "Top OOB ACC", "Top OOB MCC"]:
+            _sub = df["bl"][df["bl"]["Representation"] == _rep]
+            _bl_lines[_rep] = _sub.groupby("Subforest Size")["MCC"].mean().reset_index()
+
+        # Full forest & Single DT: single horizontal value
+        _ff_mcc = df["ff"]["MCC"].mean()
+        _dt_mcc = df["dt"]["MCC"].mean()
+
+        # CI for representations (±1 SE across datasets × reps × strategies per k)
+        # _rep_ci = df['rep'].groupby('Subforest Size')['MCC'].sem().reset_index().rename(columns={'MCC': 'SE'})
+        # _rep_line = _rep_line.merge(_rep_ci, on='Subforest Size')
+
+        fig_compression, ax_c = plt.subplots(figsize=(7, 4.5))
+
+        _series_colors = {
+            "Representations (avg)": palette[0],
+            "Single DT": "black",
+            "Top OOB ACC": palette[2],
+            "Top OOB MCC": palette[3],
+            "Random": palette[4],
+            "Full Forest": "black",
+        }
+
+        # Advanced — shaded CI band
+        # ax_c.fill_between(_rep_line['Subforest Size'],
+        #                  _rep_line['MCC'] - _rep_line['SE'],
+        #                  _rep_line['MCC'] + _rep_line['SE'],
+        #                  color=_series_colors['Representations (avg)'], alpha=0.18)
+        for i, (label, line) in enumerate(rep_lines.items()):
+            ax_c.plot(
+                line["Subforest Size"],
+                line["MCC"],
+                marker="o",
+                linewidth=2,
+                color=palette[i],
+                label=label,
+            )
+        # Baselines
+        _bl_styles = {"Random": "--", "Top OOB ACC": "-.", "Top OOB MCC": ":"}
+        for _rep, _ls in _bl_styles.items():
+            _d = _bl_lines[_rep]
+            ax_c.plot(
+                _d["Subforest Size"],
+                _d["MCC"],
+                linestyle=_ls,
+                marker="s",
+                linewidth=1.7,
+                color=_series_colors[_rep],
+                label=_rep,
+            )
+
+        # Full forest & Single DT horizontal lines
+        ax_c.axhline(
+            _ff_mcc,
+            color=_series_colors["Full Forest"],
+            linewidth=1.4,
+            linestyle="--",
+            label=f"Full Forest (MCC = {_ff_mcc:.3f})",
+        )
+        ax_c.axhline(
+            _dt_mcc,
+            color=_series_colors["Single DT"],
+            linewidth=1.4,
+            linestyle=":",
+            label=f"Single DT (MCC = {_dt_mcc:.3f})",
+        )
+
+        ax_c.set_xlabel("Subforest Size $k$")
+        ax_c.set_ylabel("Mean MCC")
+        ax_c.set_xticks(df["subforest_sizes"])
+        ax_c.set_xticklabels([str(k) for k in df["subforest_sizes"]])
+        ax_c.legend(fontsize=9.5, frameon=True, loc="lower right")
+        ax_c.set_title("RF Compression: MCC vs Subforest Size")
+        sns.despine(ax=ax_c, top=True, right=True)
+        plt.tight_layout()
+        plt.savefig(f"{output_dir}/fig_compression_{aggregate_values}.png", dpi=600)
+
+    _plot_line_plot(shared_values, aggregate_values="both")
+    _plot_line_plot(shared_values, aggregate_values="Selection Strategy")
+    _plot_line_plot(shared_values, aggregate_values="Representation")
+
+    print("Subforest Selection: Random Forest Compression - done.")
+    print()
+
+
+def plot_mcc_boxplots(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
+    """Plot boxplots of MCC distributions for different representations and selection strategies, including baselines and full forest.
+    
+    Args:
+        shared_values (dict): Dictionary containing processed dataframes for different categories.
+        output_dir (str): Directory where the plots will be saved.
+        REP_NAMES (list[str]): List of representation names to be considered.
+        SEL_STRATEGIES (list[str]): List of selection strategies to be considered.
+    """
+
+    def get_order(values, preferred_order):
+        values = list(pd.unique(values))
+        return [v for v in preferred_order if v in values] + [
+            v for v in values if v not in preferred_order
+        ]
+
+    def _plot_boxplot(
+        df, x, full_forest_mcc, single_DT_mcc, title, file_name, preferred_order=None
+    ):
+        sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+        palette = sns.color_palette("colorblind")
+
+        fig, ax = plt.subplots(figsize=(8, 4.5))
+
+        order = None
+        if preferred_order is not None:
+            order = get_order(df[x], preferred_order)
+
+        sns.boxplot(
+            data=df,
+            x=x,
+            y="fold_mean",
+            palette=palette,
+            width=0.45,
+            linewidth=1.2,
+            showfliers=False,
+            saturation=1,
+            order=order,
+            ax=ax,
+            zorder=1,
+            medianprops=dict(color="black", linewidth=2),
+        )
+
+        sns.stripplot(
+            data=df,
+            x=x,
+            y="fold_mean",
+            color="black",
+            size=2.8,
+            alpha=0.45,
+            jitter=0.12,
+            order=order,
+            ax=ax,
+            zorder=2,
+        )
+
+        for patch in ax.patches:
+            patch.set_alpha(0.85)
+
+        ax.grid(axis="y", alpha=0.3)
+        ax.grid(axis="x", visible=False)
+
+        plt.setp(ax.get_xticklabels(), rotation=25, ha="right")
+
+        ax.axhline(
+            full_forest_mcc,
+            color="black",
+            linestyle="--",
+            linewidth=1.4,
+            label="Full Forest",
+        )
+
+        ax.axhline(
+            single_DT_mcc,
+            color="black",
+            linestyle=":",
+            linewidth=1.4,
+            label="Single DT",
+        )
+
+        ymin = df["fold_mean"].min() - 0.02
+        ymax = max(df["fold_mean"].max(), full_forest_mcc, single_DT_mcc) + 0.02
+        ax.set_ylim(ymin, ymax)
+        ax.set_title(title)
+        ax.set_xlabel("")
+        ax.set_ylabel("Mean MCC")
+        ax.legend(loc="lower right", frameon=False, fontsize=10)
+        sns.despine(ax=ax)
+        plt.tight_layout()
+        plt.savefig(f"{output_dir}/fig_mcc_{file_name}.png", dpi=600)
+
+    rep_df = (
+        shared_values["rep"]
+        .groupby(["Representation", "Selection Strategy", "Dataset", "Subforest Size"])[
+            "MCC"
+        ]
+        .agg(fold_mean="mean", fold_std="std")
+        .reset_index()
+    )
+    bl_df = (
+        shared_values["bl"]
+        .groupby(["Representation", "Dataset", "Subforest Size"])["MCC"]
+        .agg(fold_mean="mean", fold_std="std")
+        .reset_index()
+    )
+    bl_df["Selection Strategy"] = bl_df["Representation"]
+    agg_df = pd.concat([rep_df, bl_df], ignore_index=True)
+    full_forest_mcc = shared_values["ff"]["MCC"].mean()
+    single_DT_mcc = shared_values["dt"]["MCC"].mean()
+
+    _plot_boxplot(
+        agg_df,
+        x="Representation",
+        full_forest_mcc=full_forest_mcc,
+        single_DT_mcc=single_DT_mcc,
+        title="MCC Distribution by Representation",
+        file_name="representation",
+        preferred_order=REP_NAMES + ["Random", "Top OOB ACC", "Top OOB MCC"],
+    )
+
+    _plot_boxplot(
+        agg_df,
+        x="Selection Strategy",
+        full_forest_mcc=full_forest_mcc,
+        single_DT_mcc=single_DT_mcc,
+        title="MCC Distribution by Selection Strategy",
+        file_name="selection_strategy",
+        preferred_order=SEL_STRATEGIES + ["Random", "Top OOB ACC", "Top OOB MCC"],
+    )
+
+    print("Subforest Selection: MCC Distribution - done.")
+    print()
+
+
+def plot_mcc_representation_selection_strategy(
+    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES
+):
+    """Plot a heatmap showing the mean MCC for each combination of representation and selection strategy.
+    
+    Args:
+        shared_values (dict): Dictionary containing processed dataframes for different categories.
+        output_dir (str): Directory where the plots will be saved.
+        REP_NAMES (list[str]): List of representation names to be considered.
+        SEL_STRATEGIES (list[str]): List of selection strategies to be considered.
+    """
+    sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+
+    _heatmap_base = (
+        shared_values["rep"]
+        .groupby(["Representation", "Selection Strategy", "Dataset", "Subforest Size"])[
+            "MCC"
+        ]
+        .agg(fold_mean="mean", fold_std="std")
+        .reset_index()
+    )
+    _heatmap_agg = (
+        _heatmap_base.groupby(["Representation", "Selection Strategy"])
+        .agg(final_mean=("fold_mean", "mean"), final_std=("fold_std", "mean"))
+        .reset_index()
+    )
+
+    _fixed = pd.concat(
+        [shared_values["bl"], shared_values["ff"], shared_values["dt"]],
+        ignore_index=True,
+    )
+    _fixed = _fixed.groupby(["Representation", "Dataset"])["MCC"].mean().reset_index()
+    _fixed = (
+        _fixed.groupby("Representation")["MCC"].mean().reset_index(name="final_mean")
+    )
+    strategy_df = pd.DataFrame({"Selection Strategy": SEL_STRATEGIES})
+    _fixed_expanded = (
+        _fixed.assign(key=1)
+        .merge(strategy_df.assign(key=1), on="key")
+        .drop(columns="key")
+    )
+    heatmap_df = pd.concat(
+        [
+            _heatmap_agg[["Representation", "Selection Strategy", "final_mean"]],
+            _fixed_expanded[["Representation", "Selection Strategy", "final_mean"]],
+        ],
+        ignore_index=True,
+    )
+
+    _strat_rename = {
+        "agglomerative-performance": "agp",
+        "agglomerative": "ag",
+        "combination-genetic": "ge",
+        "combination-greedy": "gr",
+        "combination-simulated_annealing": "sa",
+        "density": "de",
+        "k-medoid-performance": "kmp",
+        "k-medoid": "km",
+    }
+
+    _pivot_mcc = heatmap_df.pivot(
+        index="Representation", columns="Selection Strategy", values="final_mean"
+    )
+    _pivot_mcc.columns = [_strat_rename.get(c, c) for c in _pivot_mcc.columns]
+    strategy_order = [_strat_rename.get(s, s) for s in SEL_STRATEGIES]
+    _pivot_mcc = _pivot_mcc.reindex(columns=strategy_order)
+    _pivot_mcc.index = [
+        r.replace("Tree Descriptor", "TD")
+        .replace("Leaf Profile", "LP")
+        .replace("Feature Graph", "FG")
+        .replace("Topological Forest", "TF")
+        .replace("INDTree", "ID")
+        for r in _pivot_mcc.index
+    ]
+    representation_order = [
+        r.replace("Tree Descriptor", "TD")
+        .replace("Leaf Profile", "LP")
+        .replace("Feature Graph", "FG")
+        .replace("Topological Forest", "TF")
+        .replace("INDTree", "ID")
+        for r in REP_NAMES
+    ]
+    final_order = (
+        ["Full Forest"]
+        + representation_order
+        + ["Top OOB MCC", "Top OOB ACC", "Random", "Single DT"]
+    )
+    _pivot_mcc = _pivot_mcc.reindex([r for r in final_order if r in _pivot_mcc.index])
+
+    fig_heatmap_mcc, ax_hm = plt.subplots(figsize=(10, 3.8))
+    sns.heatmap(
+        _pivot_mcc,
+        ax=ax_hm,
+        cmap="YlGnBu",
+        annot=True,
+        fmt=".3f",
+        annot_kws={"size": 8},
+        linewidths=0.4,
+        linecolor="white",
+        cbar_kws={"label": "Mean MCC"},
+    )
+
+    baseline_rows = ["Full Forest", "Top OOB MCC", "Top OOB ACC", "Random", "Single DT"]
+    ncols = _pivot_mcc.shape[1]
+    mesh = ax_hm.collections[0]
+    cmap = mesh.cmap
+    norm = mesh.norm
+    for row_name in baseline_rows:
+        if row_name not in _pivot_mcc.index:
+            continue
+        y = _pivot_mcc.index.get_loc(row_name)
+        val = _pivot_mcc.loc[row_name].iloc[0]
+        rect = plt.Rectangle(
+            (0, y),
+            ncols,
+            1,
+            facecolor=cmap(norm(val)),
+            edgecolor="white",
+            linewidth=0.4,
+            zorder=3,
+        )
+        ax_hm.add_patch(rect)
+        r, g, b, _ = cmap(norm(val))
+        text_color = "white" if (0.299 * r + 0.587 * g + 0.114 * b) < 0.5 else "black"
+        ax_hm.text(
+            ncols / 2,
+            y + 0.5,
+            f"{val:.3f}",
+            ha="center",
+            va="center",
+            fontsize=8,
+            color=text_color,
+            zorder=4,
+        )
+        ax_hm.set_title("Representation × Selection Strategy — Mean MCC")
+        ax_hm.set_xlabel("Selection Strategy")
+        ax_hm.set_ylabel("Representation")
+        ax_hm.tick_params(axis="x", rotation=40)
+        ax_hm.tick_params(axis="y", rotation=0)
+
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/heatmap_mcc.png", dpi=600)
+    print(
+        "Subforest Selection: Heatmap of mean MCC (Representation × Selection Strategy) - done."
+    )
+    print()
+
+
+def plot_std_representation_selection_strategy(
+    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES
+):
+    """Plot a heatmap showing the standard deviation of MCC for each combination of representation and selection strategy.
+
+    Args:
+        shared_values (dict): Dictionary containing processed dataframes for different categories.
+        output_dir (str): Directory where the plots will be saved.
+        REP_NAMES (list[str]): List of representation names to be considered.
+        SEL_STRATEGIES (list[str]): List of selection strategies to be considered.
+    """
+
+    sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+
+    _heatmap_base = (
+        shared_values["rep"]
+        .groupby(["Representation", "Selection Strategy", "Dataset", "Subforest Size"])[
+            "MCC"
+        ]
+        .agg(fold_mean="mean", fold_std="std")
+        .reset_index()
+    )
+    _heatmap_agg = (
+        _heatmap_base.groupby(["Representation", "Selection Strategy"])
+        .agg(final_mean=("fold_mean", "mean"), final_std=("fold_std", "mean"))
+        .reset_index()
+    )
+
+    _fixed = pd.concat(
+        [shared_values["bl"], shared_values["ff"], shared_values["dt"]],
+        ignore_index=True,
+    )
+
+    _fixed = _fixed.groupby(["Representation", "Dataset"])["MCC"].std().reset_index()
+    _fixed = (
+        _fixed.groupby("Representation")["MCC"].mean().reset_index(name="final_std")
+    )
+    strategy_df = pd.DataFrame({"Selection Strategy": SEL_STRATEGIES})
+    _fixed_expanded = (
+        _fixed.assign(key=1)
+        .merge(strategy_df.assign(key=1), on="key")
+        .drop(columns="key")
+    )
+
+    heatmap_df = pd.concat(
+        [
+            _heatmap_agg[["Representation", "Selection Strategy", "final_std"]],
+            _fixed_expanded[["Representation", "Selection Strategy", "final_std"]],
+        ],
+        ignore_index=True,
+    )
+
+    _strat_rename = {
+        "agglomerative-performance": "agp",
+        "agglomerative": "ag",
+        "combination-genetic": "ge",
+        "combination-greedy": "gr",
+        "combination-simulated_annealing": "sa",
+        "density": "de",
+        "k-medoid-performance": "kmp",
+        "k-medoid": "km",
+    }
+
+    _pivot_std = heatmap_df.pivot(
+        index="Representation", columns="Selection Strategy", values="final_std"
+    )
+    _pivot_std.columns = [_strat_rename.get(c, c) for c in _pivot_std.columns]
+    strategy_order = [_strat_rename.get(s, s) for s in SEL_STRATEGIES]
+    _pivot_std = _pivot_std.reindex(columns=strategy_order)
+    _pivot_std.index = [
+        r.replace("Leaf Profile", "LP")
+        .replace("Tree Descriptor", "TD")
+        .replace("Feature Graph", "FG")
+        .replace("Topological Forest", "TF")
+        .replace("INDTree", "ID")
+        for r in _pivot_std.index
+    ]
+    representation_order = [
+        r.replace("Tree Descriptor", "TD")
+        .replace("Leaf Profile", "LP")
+        .replace("Feature Graph", "FG")
+        .replace("Topological Forest", "TF")
+        .replace("INDTree", "ID")
+        for r in REP_NAMES
+    ]
+    final_order = (
+        ["Full Forest"]
+        + representation_order
+        + ["Top OOB MCC", "Top OOB ACC", "Random", "Single DT"]
+    )
+    _pivot_std = _pivot_std.reindex([r for r in final_order if r in _pivot_std.index])
+
+    fig_heatmap_std, ax_hs = plt.subplots(figsize=(10, 3.8))
+    sns.heatmap(
+        _pivot_std,
+        ax=ax_hs,
+        cmap="OrRd",
+        annot=True,
+        fmt=".3f",
+        annot_kws={"size": 8},
+        linewidths=0.4,
+        linecolor="white",
+        cbar_kws={"label": "Std of MCC"},
+    )
+
+    baseline_rows = ["Full Forest", "Top OOB MCC", "Top OOB ACC", "Random", "Single DT"]
+    ncols = _pivot_std.shape[1]
+    mesh = ax_hs.collections[0]
+    cmap = mesh.cmap
+    norm = mesh.norm
+    for row_name in baseline_rows:
+        if row_name not in _pivot_std.index:
+            continue
+        y = _pivot_std.index.get_loc(row_name)
+        val = _pivot_std.loc[row_name].iloc[0]
+        rect = plt.Rectangle(
+            (0, y),
+            ncols,
+            1,
+            facecolor=cmap(norm(val)),
+            edgecolor="white",
+            linewidth=0.4,
+            zorder=3,
+        )
+        ax_hs.add_patch(rect)
+        r, g, b, _ = cmap(norm(val))
+        text_color = "white" if (0.299 * r + 0.587 * g + 0.114 * b) < 0.5 else "black"
+        ax_hs.text(
+            ncols / 2,
+            y + 0.5,
+            f"{val:.3f}",
+            ha="center",
+            va="center",
+            fontsize=8,
+            color=text_color,
+            zorder=4,
+        )
+        ax_hs.set_title("Representation × Selection Strategy — MCC Standard Deviation")
+        ax_hs.set_xlabel("Selection Strategy")
+        ax_hs.set_ylabel("Representation")
+        ax_hs.tick_params(axis="x", rotation=40)
+        ax_hs.tick_params(axis="y", rotation=0)
+
+    ax_hs.set_title("Representation × Selection Strategy — MCC Standard Deviation")
+    ax_hs.set_xlabel("Selection Strategy")
+    ax_hs.set_ylabel("Representation")
+    ax_hs.tick_params(axis="x", rotation=40)
+    ax_hs.tick_params(axis="y", rotation=0)
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/heatmap_std.png", dpi=600)
+    print(
+        "Subforest Selection: Heatmap of MCC standard deviation (Representation × Selection Strategy) - done."
+    )
+    print()
+
+
+def plot_kendalls_w_vs_config(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
+    """Plot Kendall's W for feature importance rankings across different configurations of representations and selection strategies.
+    
+    Args:
+        shared_values (dict): Dictionary containing processed dataframes for different categories.
+        output_dir (str): Directory where the plots will be saved.
+        REP_NAMES (list[str]): List of representation names to be considered.
+        SEL_STRATEGIES (list[str]): List of selection strategies to be considered.
+    """
+
+    sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+    palette = sns.color_palette("colorblind")
+
+    def _safe_parse_fi(x):
+        if pd.isnull(x) or str(x).strip() in ("", "nan", "None"):
+            return None
+        try:
+            return np.array(ast.literal_eval(str(x)), dtype=float)
+        except Exception:
+            return None
+
+    def _kendall_w(fi_list):
+        valid = [f for f in fi_list if f is not None]
+        if len(valid) < 2:
+            return np.nan
+        min_len = min(len(v) for v in valid)
+        valid = [v[:min_len] for v in valid]
+        rm = np.array([pd.Series(v).rank(ascending=False).values for v in valid])
+        m, n = rm.shape
+        if m < 2 or n < 2:
+            return np.nan
+        col_sums = rm.sum(axis=0)
+        S = np.sum((col_sums - col_sums.mean()) ** 2)
+        return 12 * S / (m**2 * (n**3 - n))
+
+    shared_values["rep"]["FI_arr"] = shared_values["rep"]["Feature Importances"].apply(
+        _safe_parse_fi
+    )
+    shared_values["bl"]["FI_arr"] = shared_values["bl"]["Feature Importances"].apply(
+        _safe_parse_fi
+    )
+
+    _strat_rename = {
+        "agglomerative-performance": "agp",
+        "agglomerative": "ag",
+        "combination-genetic": "ge",
+        "combination-greedy": "gr",
+        "combination-simulated_annealing": "sa",
+        "density": "de",
+        "k-medoid-performance": "kmp",
+        "k-medoid": "km",
+    }
+
+    _kw_records = []
+    # representations
+    for (ds, rep, strat, k), grp in shared_values["rep"].groupby(
+        ["Dataset", "Representation", "Selection Strategy", "Subforest Size"]
+    ):
+        _kw = _kendall_w(grp["FI_arr"].tolist())
+        _kw_records.append(
+            {
+                "Representation": rep,
+                "Selection Strategy": strat,
+                "Subforest Size": k,
+                "Kendall_W": _kw,
+            }
+        )
+    # baselines
+    for (ds, rep, k), grp in shared_values["bl"].groupby(
+        ["Dataset", "Representation", "Subforest Size"]
+    ):
+        _kw = _kendall_w(grp["FI_arr"].tolist())
+        for strat in SEL_STRATEGIES:
+            _kw_records.append(
+                {
+                    "Representation": rep,
+                    "Selection Strategy": "",
+                    "Subforest Size": k,
+                    "Kendall_W": _kw,
+                }
+            )
+
+    _kw_df = pd.DataFrame(_kw_records)
+    _kw_cfg = (
+        _kw_df.groupby(["Representation", "Selection Strategy"])["Kendall_W"]
+        .mean()
+        .reset_index()
+    )
+    _kw_cfg["Config"] = _kw_cfg.apply(
+        lambda r: (
+            {
+                "Tree Descriptor": "TD",
+                "Leaf Profile": "LP",
+                "Feature Graph": "FG",
+                "Topological Forest": "TF",
+                "INDTree": "ID",
+            }.get(r["Representation"], r["Representation"])
+            if r["Selection Strategy"] == ""
+            else {
+                "Tree Descriptor": "TD",
+                "Leaf Profile": "LP",
+                "Feature Graph": "FG",
+                "Topological Forest": "TF",
+                "INDTree": "ID",
+            }.get(r["Representation"], r["Representation"])
+            + "+"
+            + _strat_rename.get(r["Selection Strategy"], r["Selection Strategy"])
+        ),
+        axis=1,
+    )
+    _kw_cfg = _kw_cfg.sort_values("Kendall_W", ascending=True).reset_index(drop=True)
+
+    # Color bars by Representation
+    _rep_color_map = {
+        "Tree Descriptor": palette[0],
+        "Leaf Profile": palette[1],
+        "Feature Graph": palette[2],
+        "Topological Forest": palette[3],
+        "INDTree": palette[4],
+        "Top OOB MCC": palette[6],
+        "Top OOB ACC": palette[7],
+        "Random": palette[8],
+    }
+    _bar_colors = [_rep_color_map[r] for r in _kw_cfg["Representation"]]
+
+    # Reference line for full forest & single DT mean Kendall W
+    _ff_fi = shared_values["ff"].copy()
+    _ff_fi["FI_arr"] = _ff_fi["Feature Importances"].apply(_safe_parse_fi)
+    _ff_kw_vals = []
+    for (ds, k), grp in _ff_fi.groupby(["Dataset", "Subforest Size"]):
+        _ff_kw_vals.append(_kendall_w(grp["FI_arr"].tolist()))
+    _ff_kw_mean = np.nanmean(_ff_kw_vals)
+    _dt_fi = shared_values["dt"].copy()
+    _dt_fi["FI_arr"] = _dt_fi["Feature Importances"].apply(_safe_parse_fi)
+    _dt_kw_vals = []
+    for (ds, k), grp in _dt_fi.groupby(["Dataset", "Subforest Size"]):
+        _dt_kw_vals.append(_kendall_w(grp["FI_arr"].tolist()))
+    _dt_kw_mean = np.nanmean(_dt_kw_vals)
+
+    fig_kendall, ax_kw = plt.subplots(figsize=(10, 13))
+    ax_kw.barh(
+        range(len(_kw_cfg)),
+        _kw_cfg["Kendall_W"],
+        color=_bar_colors,
+        edgecolor="white",
+        linewidth=0.3,
+    )
+
+    ax_kw.set_yticks(range(len(_kw_cfg)))
+    ax_kw.set_yticklabels(_kw_cfg["Config"], fontsize=9)
+
+    ax_kw.set_xlabel("Kendall's $W$")
+    ax_kw.set_ylabel("Configuration (Representation + Selection Strategy)")
+    ax_kw.set_title(
+        "Feature Importance Stability (Kendall's $W$) per Configuration — averaged across datasets, folds, subforest sizes"
+    )
+
+    ax_kw.set_ylim(-0.5, len(_kw_cfg) - 0.5)
+    xmin = min(_kw_cfg["Kendall_W"].min(), _ff_kw_mean, _dt_kw_mean)
+    xmax = max(_kw_cfg["Kendall_W"].max(), _ff_kw_mean, _dt_kw_mean)
+    margin = 0.05 * (xmax - xmin)
+    ax_kw.set_xlim(xmin - margin, xmax + margin)
+
+    # Reference line for full forest
+    ax_kw.axvline(
+        _ff_kw_mean,
+        color="black",
+        linewidth=1.4,
+        linestyle="--",
+        label=f"Full Forest $W$ = {_ff_kw_mean:.3f}",
+    )
+
+    # Reference line for single DT
+    ax_kw.axvline(
+        _dt_kw_mean,
+        color="black",
+        linewidth=1.4,
+        linestyle=":",
+        label=f"Single DT $W$ = {_dt_kw_mean:.3f}",
+    )
+
+    # Legend
+    _legend_handles = [
+        Patch(facecolor=_rep_color_map[r], label=r)
+        for r in REP_NAMES + ["Random", "Top OOB ACC", "Top OOB MCC"]
+    ]
+    ax_kw.legend(
+        handles=_legend_handles
+        + [
+            plt.Line2D(
+                [0],
+                [0],
+                color="black",
+                linewidth=1.4,
+                linestyle="--",
+                label=f"Full Forest $W$ = {_ff_kw_mean:.3f}",
+            ),
+            plt.Line2D(
+                [0],
+                [0],
+                color="black",
+                linewidth=1.4,
+                linestyle=":",
+                label=f"Single DT $W$ = {_dt_kw_mean:.3f}",
+            ),
+        ],
+        fontsize=11,
+        frameon=True,
+        loc="lower right",
+        ncol=2,
+    )
+
+    sns.despine(ax=ax_kw, top=True, right=True)
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/fig_kendall_configurations.png", dpi=600)
+
+    print("Subforest Selection: Kendall's W vs Configuration - done.")
+    print()
+
+
+def plot_spearman_vs_subforest_size(
+    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES
+):
+    """Plot Spearman correlation of feature importance rankings between subforests and full forests across different representations and selection strategies.
+
+    Args:
+        shared_values (dict): Dictionary containing processed dataframes for different categories.
+        output_dir (str): Directory where the plots will be saved.
+        REP_NAMES (list[str]): List of representation names to be considered.
+        SEL_STRATEGIES (list[str]): List of selection strategies to be considered.
+    """
+
+    sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+    palette = sns.color_palette("colorblind")
+
+    def _safe_parse_fi(x):
+        if pd.isnull(x) or str(x).strip() in ("", "nan", "None"):
+            return None
+        try:
+            return np.array(ast.literal_eval(str(x)), dtype=float)
+        except Exception:
+            return None
+
+    shared_values["rep"]["FI_arr"] = shared_values["rep"]["Feature Importances"].apply(
+        _safe_parse_fi
+    )
+    shared_values["bl"]["FI_arr"] = shared_values["bl"]["Feature Importances"].apply(
+        _safe_parse_fi
+    )
+
+    _rep_color_map = {
+        "Tree Descriptor": palette[0],
+        "Leaf Profile": palette[1],
+        "Feature Graph": palette[2],
+        "Topological Forest": palette[3],
+        "INDTree": palette[4],
+        "Random": palette[6],
+        "Top OOB ACC": palette[7],
+        "Top OOB MCC": palette[8],
+    }
+
+    _ff = shared_values["ff"].copy()
+    _ff["FI_arr"] = _ff["Feature Importances"].apply(_safe_parse_fi)
+    _dt = shared_values["dt"].copy()
+    _dt["FI_arr"] = _dt["Feature Importances"].apply(_safe_parse_fi)
+
+    _sc_records = []
+    for _, row in shared_values["rep"].iterrows():
+        ff = _ff[
+            (_ff["Dataset"] == row["Dataset"])
+            & (_ff["Fold"] == row["Fold"])
+            & (_ff["Seed"] == row["Seed"])
+        ]
+        if len(ff) != 1:
+            continue
+        fi_sub = row["FI_arr"]
+        fi_full = ff.iloc[0]["FI_arr"]
+        if fi_sub is None or fi_full is None:
+            continue
+
+        rho, sc_p = spearmanr(fi_sub, fi_full)
+
+        _sc_records.append(
+            {
+                "Representation": row["Representation"],
+                "Selection Strategy": row["Selection Strategy"],
+                "Subforest Size": row["Subforest Size"],
+                "Spearman": rho,
+            }
+        )
+
+    for _, row in shared_values["bl"].iterrows():
+        ff = _ff[
+            (_ff["Dataset"] == row["Dataset"])
+            & (_ff["Fold"] == row["Fold"])
+            & (_ff["Seed"] == row["Seed"])
+        ]
+        if len(ff) != 1:
+            continue
+        fi_sub = row["FI_arr"]
+        fi_full = ff.iloc[0]["FI_arr"]
+        if fi_sub is None or fi_full is None:
+            continue
+
+        rho, sc_p = spearmanr(fi_sub, fi_full)
+
+        for strat in SEL_STRATEGIES:
+            _sc_records.append(
+                {
+                    "Representation": row["Representation"],
+                    "Selection Strategy": strat,
+                    "Subforest Size": row["Subforest Size"],
+                    "Spearman": rho,
+                }
+            )
+
+    _dt_records = []
+
+    for _, row in _dt.iterrows():
+        ff = _ff[
+            (_ff["Dataset"] == row["Dataset"])
+            & (_ff["Fold"] == row["Fold"])
+            & (_ff["Seed"] == row["Seed"])
+        ]
+        if len(ff) != 1:
+            continue
+        fi_dt = row["FI_arr"]
+        fi_ff = ff.iloc[0]["FI_arr"]
+        if fi_dt is None or fi_ff is None:
+            continue
+
+        rho, _ = spearmanr(fi_dt, fi_ff)
+
+        _dt_records.append(rho)
+
+    _dt_mean = np.nanmean(_dt_records)
+
+    _spear_df = pd.DataFrame(_sc_records)
+    _spear_cfg = (
+        _spear_df.groupby(["Representation", "Selection Strategy", "Subforest Size"])[
+            "Spearman"
+        ]
+        .mean()
+        .reset_index()
+        .sort_values("Subforest Size")
+    )
+
+    _baseline_styles = {
+        "Random": ("s", "--"),
+        "Top OOB ACC": ("s", "-."),
+        "Top OOB MCC": ("s", ":"),
+    }
+    _spear_cfg["Style"] = _spear_cfg["Representation"].apply(
+        lambda x: x if x in _baseline_styles else "Representation"
+    )
+
+    color_to_rep = {
+        matplotlib.colors.to_hex(color): rep for rep, color in _rep_color_map.items()
+    }
+
+    g = sns.relplot(
+        data=_spear_cfg,
+        x="Subforest Size",
+        y="Spearman",
+        hue="Representation",
+        col="Selection Strategy",
+        col_order=SEL_STRATEGIES,
+        kind="line",
+        marker="o",
+        col_wrap=4,
+        palette=_rep_color_map,
+        height=3,
+    )
+
+    for ax in g.axes.flat:
+        for line in ax.lines:
+            color = matplotlib.colors.to_hex(line.get_color())
+            if color in color_to_rep:
+                rep = color_to_rep[color]
+                if rep in _baseline_styles:
+                    marker, linestyle = _baseline_styles[rep]
+                else:
+                    marker, linestyle = "o", "-"
+                line.set_marker(marker)
+                line.set_linestyle(linestyle)
+
+    g.set_titles("{col_name}")
+    g.legend.set_title("Representation /\n Baseline")
+    g.set_axis_labels("Subforest Size", "Spearman correlation")
+    g.set(ylim=(0, 1))
+    for ax in g.axes.flat:
+        ax.axhline(
+            _dt_mean, color="black", linestyle=":", linewidth=1.4, label="Single DT"
+        )
+
+    handles, labels = g.axes.flat[0].get_legend_handles_labels()
+    legend_order = REP_NAMES + list(_baseline_styles.keys())
+    label_to_handle = dict(zip(labels, handles))
+    handles = [label_to_handle[lb] for lb in legend_order if lb in label_to_handle]
+    labels = [lb for lb in legend_order if lb in label_to_handle]
+    handles.append(
+        plt.Line2D(
+            [0], [0], color="black", linestyle=":", linewidth=1.4, label="Single DT"
+        )
+    )
+    labels.append("Single DT")
+    g.legend.remove()
+    g.fig.legend(
+        handles, labels, loc="center right", title="Representation /\nBaseline"
+    )
+
+    g.savefig(f"{output_dir}/fig_spearman_full_forest.png", dpi=600)
+    plt.close(g.figure)
+
+    print("Subforest Selection: Spearman's R vs Subforest Size - done.")
+    print()
+
+
+def print_representation_vs_subforest_size(shared_values, output_dir, REP_NAMES):
+    """Generate a LaTeX table summarizing the mean MCC and standard deviation for each representation and subforest size.
+    
+    Args:
+        shared_values (dict): Dictionary containing processed dataframes for different categories.
+        output_dir (str): Directory where the LaTeX table will be saved.
+        REP_NAMES (list[str]): List of representation names to be considered.
+    """
+
+    _ff = shared_values["ff"].groupby(["Dataset"])["MCC"].mean()
+    ff_mean = _ff.mean()
+    ff_std = _ff.std()
+    _dt = shared_values["dt"].groupby(["Dataset"])["MCC"].mean()
+    dt_mean = _dt.mean()
+    dt_std = _dt.std()
+    _bl = (
+        shared_values["bl"]
+        .groupby(["Representation", "Dataset", "Subforest Size"])["MCC"]
+        .agg(fold_mean="mean", fold_std="std")
+        .reset_index()
+    )
+    _bl = (
+        _bl.groupby(["Representation", "Subforest Size"])
+        .agg(
+            avg_mcc=("fold_mean", "mean"),
+            avg_std=("fold_std", "mean"),
+        )
+        .reset_index()
+    )
+
+    _rep_strat_ds_k = (
+        shared_values["rep"]
+        .groupby(["Representation", "Selection Strategy", "Dataset", "Subforest Size"])[
+            "MCC"
+        ]
+        .agg(fold_mean="mean", fold_std="std")
+        .reset_index()
+    )
+    _rep_k = (
+        _rep_strat_ds_k.groupby(["Representation", "Subforest Size"])
+        .agg(avg_mcc=("fold_mean", "mean"), avg_std=("fold_std", "mean"))
+        .reset_index()
+    )
+    _best_rep_per_k = (
+        _rep_k.groupby("Subforest Size")
+        .apply(lambda d: d.loc[d["avg_mcc"].idxmax(), "Representation"])
+        .to_dict()
+    )
+    _rep_scores = _rep_k[["Representation", "Subforest Size", "avg_mcc"]].copy()
+    _bl_scores = _bl[["Representation", "Subforest Size", "avg_mcc"]].copy()
+    _all_scores = pd.concat([_rep_scores, _bl_scores], ignore_index=True)
+    _best_overall_per_k = (
+        _all_scores.groupby("Subforest Size")["avg_mcc"].max().to_dict()
+    )
+
+    def _fmt_cell(mcc, std, underline=False, bold=False):
+        value = f"{mcc:.3f}"
+        if underline:
+            value = f"\\underline{{{value}}}"
+        if bold:
+            value = f"\\mathbf{{{value}}}"
+        return f"${value} \\pm {std:.3f}$"
+
+    _col_header = " & ".join([f"$k={k}$" for k in shared_values["subforest_sizes"]])
+    _latex_table1_lines = [
+        "\\begin{table}[ht]",
+        "  \\centering",
+        "  \\caption{Average test MCC (standard deviation in parentheses) per representation and subforest size, averaged across all selection strategies, datasets, and folds. Underline: best representation for each $k$. Bold: best overall method for each $k$.}",
+        "  \\label{tab:rep_mcc}",
+        f"  \\begin{{tabular}}{{l{'c' * len(shared_values['subforest_sizes'])}}}",
+        "    \\toprule",
+        f"    \\textbf{{Representation}} & {_col_header} \\\\",
+        "    \\midrule",
+    ]
+
+    _latex_table1_lines += [
+        f"    Full Forest & \\multicolumn{{{len(shared_values['subforest_sizes'])}}}{{c}}{{{_fmt_cell(ff_mean, ff_std)}}} \\\\",
+        f"    Single DT & \\multicolumn{{{len(shared_values['subforest_sizes'])}}}{{c}}{{{_fmt_cell(dt_mean, dt_std)}}} \\\\",
+        "    \\midrule",
+    ]
+
+    baseline_order = ["Top OOB MCC", "Top OOB ACC", "Random"]
+
+    for rep in baseline_order:
+        cells = []
+        for k in shared_values["subforest_sizes"]:
+            row = _bl[(_bl["Representation"] == rep) & (_bl["Subforest Size"] == k)]
+            if len(row) == 0:
+                cells.append("--")
+            else:
+                _mcc = row["avg_mcc"].values[0]
+                _std = row["avg_std"].values[0]
+                _bold = _mcc == _best_overall_per_k.get(k)
+                cells.append(_fmt_cell(_mcc, _std, bold=_bold))
+        _latex_table1_lines.append(f"    {rep} & " + " & ".join(cells) + r" \\")
+    _latex_table1_lines.append("    \\midrule")
+
+    for _rep in REP_NAMES:
+        _cells = []
+        for k in shared_values["subforest_sizes"]:
+            _row = _rep_k[
+                (_rep_k["Representation"] == _rep) & (_rep_k["Subforest Size"] == k)
+            ]
+            if len(_row) == 0:
+                _cells.append("--")
+            else:
+                _mcc = _row["avg_mcc"].values[0]
+                _std = _row["avg_std"].values[0]
+                _underline = _best_rep_per_k.get(k) == _rep
+                _bold = _mcc == _best_overall_per_k.get(k)
+                _cells.append(_fmt_cell(_mcc, _std, underline=_underline, bold=_bold))
+        _display = _rep.replace("Topological Forest", "Topol. Forest")
+        _latex_table1_lines.append(f"    {_display} & " + " & ".join(_cells) + " \\\\")
+    _latex_table1_lines += [
+        "    \\bottomrule",
+        "  \\end{tabular}",
+        "\\end{table}",
+    ]
+    _latex_table1 = "\n".join(_latex_table1_lines)
+    with open(f"{output_dir}/table_representation_vs_subforest_size.txt", "w") as f:
+        f.write(_latex_table1)
+    print("Subforest Selection: Representation vs Subforest Size Table (LaTeX) - done.")
+    print()
+
+
+def print_config_vs_subforest_size(shared_values, output_dir):
+    """Generate a LaTeX table summarizing the mean MCC, standard deviation, and significance percentage for each configuration and subforest size.
+    
+    Args:
+        shared_values (dict): Dictionary containing processed dataframes for different categories.
+        output_dir (str): Directory where the LaTeX table will be saved.
+    """
+    
+    _ff = (
+        shared_values["ff"]
+        .groupby(["Dataset"])["MCC"]
+        .agg(mean="mean", std="std")
+        .reset_index()
+    )
+    _ff_mean = _ff["mean"].mean()
+    _ff_std = _ff["std"].mean()
+    _dt = (
+        shared_values["dt"]
+        .groupby(["Dataset"])["MCC"]
+        .agg(mean="mean", std="std")
+        .reset_index()
+    )
+    _dt_mean = _dt["mean"].mean()
+    _dt_std = _dt["std"].mean()
+    _bl = (
+        shared_values["bl"]
+        .groupby(["Representation", "Dataset", "Subforest Size"])["MCC"]
+        .agg(dataset_mcc="mean", dataset_std="std")
+        .reset_index()
+    )
+    _bl = (
+        _bl.groupby(["Representation", "Subforest Size"])
+        .agg(avg_mcc=("dataset_mcc", "mean"), avg_std=("dataset_std", "mean"))
+        .reset_index()
+    )
+
+    # For each k: pairwise Wilcoxon tests across all 40 configs to get sig%
+    shared_values["rep"]["Config"] = (
+        shared_values["rep"]["Representation"]
+        + " + "
+        + shared_values["rep"]["Selection Strategy"]
+    )
+    _configs = sorted(shared_values["rep"]["Config"].unique())
+
+    # Pre-compute mean MCC per (Config, Dataset, k) for Wilcoxon testing
+    _cfg_ds_k = (
+        shared_values["rep"]
+        .groupby(["Config", "Dataset", "Subforest Size"])["MCC"]
+        .mean()
+    )
+
+    # Build sig matrix: sig_pct[cfg][k] = % of other configs this cfg beats
+    _sig_pct = {cfg: {} for cfg in _configs}
+    for k in shared_values["subforest_sizes"]:
+        _vals_by_cfg = {}
+        for cfg in _configs:
+            try:
+                _vals_by_cfg[cfg] = _cfg_ds_k.xs(
+                    (cfg, k), level=("Config", "Subforest Size")
+                ).values
+            except KeyError:
+                _vals_by_cfg[cfg] = None
+
+        for cfg in _configs:
+            if _vals_by_cfg[cfg] is None:
+                _sig_pct[cfg][k] = np.nan
+                continue
+            _n_sig = 0
+            _n_total = 0
+            for other in _configs:
+                if other == cfg or _vals_by_cfg[other] is None:
+                    continue
+                _diff = _vals_by_cfg[cfg] - _vals_by_cfg[other]
+                if np.all(_diff == 0):
+                    continue
+                try:
+                    _, _p = wilcoxon(_diff, alternative="greater")
+                    _n_sig += int(_p < 0.05)
+                except Exception:
+                    pass
+                _n_total += 1
+            _sig_pct[cfg][k] = 100.0 * _n_sig / _n_total if _n_total > 0 else 0.0
+
+    _cfg_ds_k_agg = (
+        shared_values["rep"]
+        .groupby(["Config", "Dataset", "Subforest Size"])["MCC"]
+        .agg(dataset_mcc="mean", dataset_std="std")
+        .reset_index()
+    )
+    _cfg_k_agg = (
+        _cfg_ds_k_agg.groupby(["Config", "Subforest Size"])
+        .agg(avg_mcc=("dataset_mcc", "mean"), avg_std=("dataset_std", "mean"))
+        .reset_index()
+    )
+
+    # Sort configs by overall avg MCC descending for table order
+    _cfg_order = (
+        _cfg_k_agg.groupby("Config")["avg_mcc"]
+        .mean()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
+
+    # Best config per k (rep) by avg MCC
+    _best_cfg_per_k_reps = (
+        _cfg_k_agg.groupby("Subforest Size")
+        .apply(lambda d: d.loc[d["avg_mcc"].idxmax(), "Config"])
+        .to_dict()
+    )
+
+    # Best config per k (rep+bl) by avg MCC
+    _all_k_agg = pd.concat(
+        [
+            _cfg_k_agg[["Subforest Size", "Config", "avg_mcc"]],
+            _bl.rename(columns={"Representation": "Config"})[
+                ["Subforest Size", "Config", "avg_mcc"]
+            ],
+        ],
+        ignore_index=True,
+    )
+    _best_cfg_per_k = (
+        _all_k_agg.groupby("Subforest Size")
+        .apply(lambda d: d.loc[d["avg_mcc"].idxmax(), "Config"])
+        .to_dict()
+    )
+
+    def _fmt_triple(mcc, std, sig=None, bold=False, underline=False):
+        sig = None
+        value = f"{mcc:.3f}"
+        if underline:
+            value = f"\\underline{{{value}}}"
+        if bold:
+            value = f"\\textbf{{{value}}}"
+        if sig is None:
+            return f"${value}\\pm{std:.3f}$"
+        else:
+            return f"${value}\\pm{std:.3f}$ / {sig:.0f}\\%"
+
+    # Build a short config label: abbreviate representation
+    def _abbrev_cfg(cfg):
+        _rep_rename = {
+            "Tree Descriptor": "TD",
+            "Leaf Profile": "LP",
+            "Feature Graph": "FG",
+            "Topological Forest": "TF",
+            "INDTree": "ID",
+        }
+        _strat_rename = {
+            "agglomerative-performance": "agp",
+            "agglomerative": "ag",
+            "combination-genetic": "ge",
+            "combination-greedy": "gr",
+            "combination-simulated_annealing": "sa",
+            "density": "de",
+            "k-medoid-performance": "kmp",
+            "k-medoid": "km",
+        }
+        rep, strat = cfg.split(" + ")
+        rep = _rep_rename.get(rep, rep)
+        strat = _strat_rename.get(strat, strat)
+        return f"{rep}+{strat}"
+
+    def _build_tabular(sf_sizes):
+        _header = " & ".join([f"$k={k}$" for k in sf_sizes])
+
+        lines = [
+            f"  \\begin{{tabular}}{{l{'c' * len(sf_sizes)}}}",
+            "    \\toprule",
+            f"    Configuration & {_header} \\\\",
+            "    \\midrule",
+        ]
+
+        lines += [
+            f"    Full Forest & "
+            f"\\multicolumn{{{len(sf_sizes)}}}{{c}}{{{_fmt_triple(_ff_mean, _ff_std)}}} \\\\",
+            f"    Single DT & "
+            f"\\multicolumn{{{len(sf_sizes)}}}{{c}}{{{_fmt_triple(_dt_mean, _dt_std)}}} \\\\",
+            "    \\midrule",
+        ]
+
+        baseline_order = ["Top OOB MCC", "Top OOB ACC", "Random"]
+        for baseline in baseline_order:
+            cells = []
+            for k in sf_sizes:
+                row = _bl[
+                    (_bl["Representation"] == baseline) & (_bl["Subforest Size"] == k)
+                ]
+                if len(row) == 0:
+                    cells.append("--")
+                else:
+                    _bold = _best_cfg_per_k.get(k) == baseline
+                    cells.append(
+                        _fmt_triple(
+                            row["avg_mcc"].values[0],
+                            row["avg_std"].values[0],
+                            bold=_bold,
+                        )
+                    )
+            lines.append(f"    {baseline} & " + " & ".join(cells) + " \\\\")
+        lines.append("    \\midrule")
+
+        for cfg in _cfg_order:
+            _cells = []
+            for k in sf_sizes:
+                _row = _cfg_k_agg[
+                    (_cfg_k_agg["Config"] == cfg) & (_cfg_k_agg["Subforest Size"] == k)
+                ]
+                if len(_row) == 0:
+                    _cells.append("--")
+                else:
+                    _bold = _best_cfg_per_k.get(k) == cfg
+                    _underline = _best_cfg_per_k_reps.get(k) == cfg
+                    _cells.append(
+                        _fmt_triple(
+                            _row["avg_mcc"].values[0],
+                            _row["avg_std"].values[0],
+                            _sig_pct[cfg][k],
+                            _bold,
+                            _underline,
+                        )
+                    )
+
+            lines.append(f"    {_abbrev_cfg(cfg)} & " + " & ".join(_cells) + " \\\\")
+
+        lines += [
+            "    \\bottomrule",
+            "  \\end{tabular}",
+        ]
+
+        return lines
+
+    _latex_table2_lines = [
+        "\\begin{table}[ht]",
+        "  \\centering",
+        "  \\caption{Per-configuration performance across subforest sizes. Each cell reports the mean MCC values and their mean standard deviation. Bold: best overall value per $k$. Underline: best value among all configurations per $k$.}",
+        "  \\label{tab:config_mcc}",
+        "  \\resizebox{\\textwidth}{!}{%",
+    ]
+
+    _latex_table2_lines += _build_tabular(shared_values["subforest_sizes"])
+
+    _latex_table2_lines += [
+        "}",
+        "\\end{table}",
+    ]
+
+    _latex_table2 = "\n".join(_latex_table2_lines)
+
+    with open(f"{output_dir}/table_config_vs_subforest_size.txt", "w") as f:
+        f.write(_latex_table2)
+    print("Subforest Selection: Configuration vs Subforest Size Table (LaTeX) - done.")
+    print()

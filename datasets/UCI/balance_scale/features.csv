@@ -1,0 +1,6 @@
+name,role,type,demographic,description,units,missing_values
+right-distance,Feature,Categorical,,"L, B, R",,no
+right-weight,Feature,Categorical,,"1, 2, 3, 4, 5",,no
+left-distance,Feature,Categorical,,"1, 2, 3, 4, 5",,no
+left-weight,Feature,Categorical,,"1, 2, 3, 4, 5",,no
+class,Target,Categorical,,"1, 2, 3, 4, 5",,no

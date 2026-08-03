@@ -1,0 +1,18 @@
+name,role,type,demographic,description,units,missing_values
+lettr,Target,Categorical,,capital letter,,no
+x-box,Feature,Integer,,horizontal position of box,,no
+y-box,Feature,Integer,,vertical position of box,,no
+width,Feature,Integer,,width of box,,no
+high,Feature,Integer,,height of box,,no
+onpix,Feature,Integer,,total # on pixels,,no
+x-bar,Feature,Integer,,mean x of on pixels in box,,no
+y-bar,Feature,Integer,,mean y of on pixels in box,,no
+x2bar,Feature,Integer,,mean x variance,,no
+y2bar,Feature,Integer,,mean y variance,,no
+xybar,Feature,Integer,,mean x y correlation,,no
+x2ybr,Feature,Integer,,mean of x * x * y,,no
+xy2br,Feature,Integer,,mean of x * y * y,,no
+x-ege,Feature,Integer,,mean edge count left to right,,no
+xegvy,Feature,Integer,,correlation of x-ege with y,,no
+y-ege,Feature,Integer,,mean edge count bottom to top,,no
+yegvx,Feature,Integer,,correlation of y-ege with x,,no

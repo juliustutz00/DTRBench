@@ -1,0 +1,17 @@
+name,role,type,demographic,description,units,missing_values
+A1,Feature,Categorical,,,,yes
+A2,Feature,Continuous,,,,yes
+A3,Feature,Continuous,,,,no
+A4,Feature,Categorical,,,,yes
+A5,Feature,Categorical,,,,yes
+A6,Feature,Categorical,,,,yes
+A7,Feature,Categorical,,,,yes
+A8,Feature,Continuous,,,,no
+A9,Feature,Binary,,,,no
+A10,Feature,Binary,,,,no
+A11,Feature,Integer,,,,no
+A12,Feature,Binary,,,,no
+A13,Feature,Categorical,,,,yes
+A14,Feature,Integer,,,,no
+A15,Feature,Integer,,,,no
+A16,Target,Binary,,,,no
