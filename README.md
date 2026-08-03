@@ -1,13 +1,13 @@
 # DTRBench
 
-Comparing decision trees is inherently non-trivial due to their structure. While there exist potential tree distance measures, these focus on structure do not capture the functionality of the underlying decision trees.
+Comparing decision trees is inherently non-trivial due to their structure. While there exist potential tree distance measures, these focus on structure and do not capture the functionality of the underlying decision trees.
 
 Representations of said decision trees enable a structural and functional comparison by abstracting some information and thereby gaining the ability to quantify similarity.
 
 This benchmark therefore explores the usefulness of different decision tree representations by  
 (i) assessing the representations in an isolated setting by using controlled perturbations and measuring correlations between representation distances, performance differences, and feature importance shift,  
 (ii) estimating the representation’s effectiveness on downstream tasks by using their distances for a diverse subforest selection which is then compared against a single decision tree and subforests chosen at random or solely based on out-of-bag (OOB) accuracy/MCC, and  
-(iii) measuring the runtime and memory requirement of each representation.
+(iii) measuring the runtime and memory requirements of each representation.
 
 <details open>
 <summary><h2>Quickstart</h2></summary>
@@ -99,22 +99,37 @@ The Resource Benchmark measures the computational efficiency in terms of runtime
 </details>
 
 <details>
-<summary><h2>Data expextacions</h2></summary>
+<summary><h2>Reporting</h2></summary>
 
-The framework includes 25 UCI datasets out of the box. These were chosen as they have large performance differences between a single decision tree and a random forest, ensuring that representations are evaluated on classification problems where ensembles have a substantial predictive advantage over individual decision trees. 
+The reporting module analyzes benchmark results and generates plots and summary statistics based on the selected options in the [report config file](report_config.yaml).
 
-Expected dataset layout:
-```
-dataset_name/
-  X.npy (numpy array)
-  y.npy (numpy array)
-  features.csv (csv)
-```
+Reports can be generated from results of one or multiple datasets. When multiple datasets are provided, results are aggregated across datasets before creating plots and statistics.
 
-Notes: 
-* Categorical/binary features are **dropped** as sklearn DecisionTreeClassifier cannot use them (only continuous/integer-like types are kept).
-* Splits are created via stratified cross-validation.
-* Custom datasets can easily be added to the framework. For further information, refer to Section [Benchmarks](#benchmarks).
+The generated reports are organized according to the three benchmark types:
+
+<h3>Perturbation Benchmark Reports</h3>
+
+These reports analyze whether representation distances reflect meaningful changes in decision trees. Generated analyses include:
+- Representation similarity versus predictive performance and feature importance shift.
+- Representation similarity as a function of perturbation intensity for each perturbation type.
+
+<h3>Subforest Benchmark Reports</h3>
+
+These reports evaluate the effectiveness of representation-based tree selection for random forest compression. Generated analyses include:
+- Random forest compression performance.
+- MCC comparisons between representations and selection strategies.
+- Standard deviation comparisons across configurations.
+- Agreement between configurations using Kendall's W.
+- Correlation between representation distances and subforest size using Spearman correlation.
+- Summary tables comparing representations and configurations across different subforest sizes.
+
+<h3>Resource Benchmark Reports</h3>
+
+These reports evaluate the computational requirements of decision tree representations. Generated analyses include:
+- Runtime comparisons for representation generation and similarity computation.
+- Memory usage comparisons for representation generation and similarity computation.
+
+All generated plots and tables are stored in the configured output directory. Individual reports can be enabled or disabled through the corresponding options in the [report config file](report_config.yaml).
 
 </details>
 
@@ -134,24 +149,45 @@ The following figure shows how a simple decision tree is converted into each res
 
 </details>
 
-
 <details>
-<summary><h2>Reporting</h2></summary>
+<summary><h2>Data expectations</h2></summary>
 
-Test test
+The framework includes 25 UCI datasets out of the box. These were chosen as they have large performance differences between a single decision tree and a random forest, ensuring that representations are evaluated on classification problems where ensembles have a substantial predictive advantage over individual decision trees. 
+
+Expected dataset layout:
+```
+dataset_name/
+  X.npy (numpy array)
+  y.npy (numpy array)
+  features.csv (csv)
+```
+
+Notes: 
+* Categorical/binary features are **dropped** as sklearn DecisionTreeClassifier cannot use them (only continuous/integer-like types are kept).
+* Splits are created via stratified cross-validation.
+* Custom datasets can easily be added to the framework. For further information, refer to Section [Benchmarks](#benchmarks).
 
 </details>
 
-
 <details>
-<summary><h2>Limitations</h2></summary>
+<summary><h2>Adding custom content</h2></summary>
 
-* Only works for classification tasks; regression tasks are not supported
-* Only works with numerical features; categorical/binary features are not supported (except for the perturbations, they support categorical data)
-* Other limitations.
+The framework is designed to be modular and easily extensible, allowing users to evaluate their own decision tree representations without modifying the core benchmark implementation. Besides custom representations, users can also add their own datasets, perturbations, and subforest selection strategies.
+
+All user-defined extensions are placed in the [`user_extensions/`](user_extensions) directory. This directory contains template implementations for each extension type together with inline documentation explaining the required interface and expected behavior.
+
+Once implemented, a custom extension only needs to be registered using the provided registration decorator/function. Registered extensions are discovered automatically by the framework and become available throughout the codebase. In particular, they can be referenced directly from the benchmark and report configuration files in exactly the same way as the built-in implementations.
+
+The framework supports the following extension types:
+
+* Representations – Implement custom decision tree representations together with their corresponding similarity measure.
+* Datasets – Add custom datasets to the benchmark by providing the expected dataset structure.
+* Perturbations – Implement additional perturbation operators for the perturbation benchmark.
+* Selection Strategies – Add new algorithms for selecting representative subforests in the subforest benchmark.
+
+This modular design keeps the benchmark implementation independent of individual methods while making it straightforward to compare new approaches against the built-in baselines.
 
 </details>
-
 
 <a name="configs"></a>
 <details>
@@ -333,25 +369,11 @@ These options control which individual plots and tables are generated.
 
 </details>
 
-
 <details>
-<summary><h2>Adding custom content</h2></summary>
+<summary><h2>Limitations</h2></summary>
 
-The framework is designed to be modular and easily extensible, allowing users to evaluate their own decision tree representations without modifying the core benchmark implementation. Besides custom representations, users can also add their own datasets, perturbations, and subforest selection strategies.
-
-All user-defined extensions are placed in the `user_extensions/` directory. This directory contains template implementations for each extension type together with inline documentation explaining the required interface and expected behavior.
-
-Once implemented, a custom extension only needs to be registered using the provided registration decorator/function. Registered extensions are discovered automatically by the framework and become available throughout the codebase. In particular, they can be referenced directly from the benchmark and report configuration files in exactly the same way as the built-in implementations.
-
-The framework supports the following extension types:
-
-* Representations – Implement custom decision tree representations together with their corresponding similarity measure.
-* Datasets – Add custom datasets to the benchmark by providing the expected dataset structure.
-* Perturbations – Implement additional perturbation operators for the perturbation benchmark.
-* Selection Strategies – Add new algorithms for selecting representative subforests in the subforest benchmark.
-
-This modular design keeps the benchmark implementation independent of individual methods while making it straightforward to compare new approaches against the built-in baselines.
+* Only works for classification tasks; regression tasks are not supported
+* Only works with numerical features; categorical/binary features are not supported (except for the perturbations, they support categorical data)
+* Only implements 25 UCI dataset; other types of datasets (e.g., HDLSS) are not included by default
 
 </details>
-
-
