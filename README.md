@@ -240,7 +240,7 @@ Available built-in perturbations:
 | Parameter | Description | Type | Allowed values | Default |
 |-----------|-------------|------|----------------|---------|
 | `random_forest_size` | Number of trees in the random forest. For perturbation benchmarks, this defines the number of trees being perturbed. For subforest benchmarks, it defines the pool from which trees are selected. | `int` | Any integer ≥ 1 | `300` |
-| `subforest_size` | Number of trees selected for each subforest evaluation. | `list[int]` | Values between `1` and `random_forest_size` | `[2, 5, 10, 15, 20, 25, 30]` |
+| `subforest_size` | Number of trees selected for each subforest evaluation. | `list[int]` | Values between `1` and `random_forest_size` | `[5, 10, 15, 20, 25, 30]` |
 | `selection_strategies` | Strategies used to select subforests. Custom strategies can be added through the selection strategy register. | `list[str]` | Registered selection strategy names | Built-in strategies |
 
 Available built-in selection strategies:
