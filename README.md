@@ -203,9 +203,37 @@ The benchmark can be customized through the following parameters. Unless specifi
 |-----------|-------------|------|----------------|---------|
 | `seed` | Random seed used to ensure reproducible benchmark results. | `int` | Any integer | `42` |
 | `print_progress` | Whether to display progress information while running the benchmark. | `bool` | `True`, `False` | `True` |
-| `dataset` | Dataset used for evaluation. Custom datasets can be added through the dataset register. | `str` | Registered dataset names (e.g., `iris`, `balance_scale`, `wine`) | `iris` |
+| `dataset` | Dataset used for evaluation. Custom datasets can be added through the dataset register. | `str` | Registered dataset names | `iris` |
 | `n_splits` | Number of cross-validation folds used during evaluation. | `int` | `2`–`10` | `3` |
 | `n_samples` | Maximum number of samples taken from the dataset. Leave empty to use the complete dataset. | `int` or `None` | Any integer ≥ `n_splits`, or empty | Empty |
+
+Available built-in datasets:
+
+- `balance_scale`
+- `cervical_cancer`
+- `cirrhosis`
+- `connectionist`
+- `credit_approval`
+- `cylinder_bands`
+- `DARWIN`
+- `diabetic_retinopathy`
+- `eeg_eye`
+- `fertility`
+- `heart_disease`
+- `heart_failure`
+- `iris`
+- `isolet`
+- `japanese_credit`
+- `letter_recognition`
+- `monk_problem`
+- `musk_1`
+- `statlog_australian`
+- `statlog_german`
+- `statlog_vehicle`
+- `support2`
+- `vertebral_column`
+- `waveform`
+- `wine`
 <br>
 
 <h4>Benchmark Selection</h4>
