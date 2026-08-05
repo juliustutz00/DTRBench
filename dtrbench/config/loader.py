@@ -100,7 +100,6 @@ def load_analysis_config(path: str | Path) -> dict[str, Any]:
         defaults,
         runs[0],
     )
-    run_config = _normalize_representations(run_config)
     if run_config.get("output_dir") is None:
         raise ValueError("output_dir must be specified in the analysis configuration.")
     run_config["source_path"] = str(config_path)
