@@ -202,7 +202,7 @@ The benchmark can be customized through the following parameters. Unless specifi
 | Parameter | Description | Type | Allowed values | Default |
 |-----------|-------------|------|----------------|---------|
 | `seed` | Random seed used to ensure reproducible benchmark results. | `int` | Any integer | `42` |
-| `print_progress` | Whether to display progress information while running the benchmark. | `bool` | `True`, `False` | `True` |
+| `print_progress` | Whether to display progress information while running the benchmark. | `bool` | `true`, `false` | `true` |
 | `dataset` | Dataset used for evaluation. Custom datasets can be added through the dataset register. | `str` | Registered dataset names | `iris` |
 | `n_splits` | Number of cross-validation folds used during evaluation. | `int` | `2`–`10` | `3` |
 | `n_samples` | Maximum number of samples taken from the dataset. Leave empty to use the complete dataset. | `int` or `None` | Any integer ≥ `n_splits`, or empty | Empty |
@@ -242,9 +242,9 @@ These options control which benchmark modules are executed.
 
 | Parameter | Description | Type | Allowed values | Default |
 |-----------|-------------|------|----------------|---------|
-| `perturbation_benchmark` | Enable or disable the perturbation benchmark. | `bool` | `True`, `False` | `True` |
-| `subforest_benchmark` | Enable or disable the subforest benchmark. | `bool` | `True`, `False` | `True` |
-| `resource_benchmark` | Enable or disable the resource benchmark. | `bool` | `True`, `False` | `True` |
+| `perturbation_benchmark` | Enable or disable the perturbation benchmark. | `bool` | `true`, `false` | `true` |
+| `subforest_benchmark` | Enable or disable the subforest benchmark. | `bool` | `true`, `false` | `true` |
+| `resource_benchmark` | Enable or disable the resource benchmark. | `bool` | `true`, `false` | `true` |
 <br>
 
 <h4>Perturbation Benchmark Configuration</h4>
@@ -333,6 +333,7 @@ These options control which representations, perturbations, subforest sizes, and
 | `perturbations` | Perturbation methods to include in plots and tables. The order of the list determines the order in which perturbations are displayed. Custom perturbations can be added through the perturbation register. | `list[str]` | Registered perturbation names | `["change_threshold", "change_feature", "swap_nodes", "remove_nodes", "add_nodes"]` |
 | `subforest_sizes` | Subforest sizes considered for plots and tables. Values must not exceed the configured `random_forest_size`. | `list[int]` | Values between `1` and `random_forest_size` | `[5, 10, 15, 20, 25, 30]` |
 | `selection_strategies` | Selection strategies to include in plots and tables. The order of the list determines the order in which strategies are displayed. Custom strategies can be added through the selection strategy register. | `list[str]` | Registered selection strategy names | `["k-medoid", "k-medoid-performance", "agglomerative", "agglomerative-performance", "density", "combination-greedy", "combination-simulated_annealing", "combination-genetic"]` |
+| `show_recovery` | Style in which to show and aggregate values. If set to `true`, predictive performance is given in relation to the full forest, meaning how much of its predictive performance can be recovered. | `bool` | `true`, `false` | `false` |
 
 Available built-in representations:
 
@@ -381,18 +382,18 @@ These options control which individual plots and tables are generated.
 
 | Parameter | Description | Type | Allowed values | Default |
 |-----------|-------------|------|----------------|---------|
-| `rep_similarity_vs_performance_feature_importance` | Generate the representation similarity versus performance feature importance plots (perturbation benchmark). | `bool` | `True`, `False` | `True` |
-| `similarity_vs_intensity_per_perturbation` | Generate similarity versus perturbation intensity plot (perturbation benchmark). | `bool` | `True`, `False` | `True` |
-| `rf_compression` | Generate random forest compression plots (subforest benchmark). | `bool` | `True`, `False` | `True` |
-| `mcc_boxplots` | Generate MCC boxplots for benchmark comparisons (subforest benchmark). | `bool` | `True`, `False` | `True` |
-| `mcc_representation_selection_strategy` | Generate MCC comparison plot across representations and selection strategies (subforest benchmark). | `bool` | `True`, `False` | `True` |
-| `std_representation_selection_strategy` | Generate standard deviation comparison plots across representations and selection strategies (subforest benchmark). | `bool` | `True`, `False` | `True` |
-| `kendalls_w_vs_config` | Generate Kendall's W agreement plot across configurations (subforest benchmark). | `bool` | `True`, `False` | `True` |
-| `spearman_vs_subforest_size` | Generate Spearman correlation plot with respect to subforest size (subforest benchmark). | `bool` | `True`, `False` | `True` |
-| `representation_vs_subforest_size` | Generate representation comparison table with respect to subforest size (subforest benchmark). | `bool` | `True`, `False` | `True` |
-| `config_vs_subforest_size` | Generate configuration comparison table with respect to subforest size  (subforest benchmark). | `bool` | `True`, `False` | `True` |
-| `resource_benchmark_represent` | Generate runtime and memory requirement plots for represent-operations  (resource benchmark). | `bool` | `True`, `False` | `True` |
-| `resource_benchmark_similarity` | Generate runtime and memory requirement plots for similarity-operations (resource benchmark). | `bool` | `True`, `False` | `True` |
+| `rep_similarity_vs_performance_feature_importance` | Generate the representation similarity versus performance feature importance plots (perturbation benchmark). | `bool` | `true`, `false` | `true` |
+| `similarity_vs_intensity_per_perturbation` | Generate similarity versus perturbation intensity plot (perturbation benchmark). | `bool` | `true`, `false` | `true` |
+| `rf_compression` | Generate random forest compression plots (subforest benchmark). | `bool` | `true`, `false` | `true` |
+| `mcc_boxplots` | Generate MCC boxplots for benchmark comparisons (subforest benchmark). | `bool` | `true`, `false` | `true` |
+| `mcc_representation_selection_strategy` | Generate MCC comparison plot across representations and selection strategies (subforest benchmark). | `bool` | `true`, `false` | `true` |
+| `std_representation_selection_strategy` | Generate standard deviation comparison plots across representations and selection strategies (subforest benchmark). | `bool` | `true`, `false` | `true` |
+| `kendalls_w_vs_config` | Generate Kendall's W agreement plot across configurations (subforest benchmark). | `bool` | `true`, `false` | `true` |
+| `spearman_vs_subforest_size` | Generate Spearman correlation plot with respect to subforest size (subforest benchmark). | `bool` | `true`, `false` | `true` |
+| `representation_vs_subforest_size` | Generate representation comparison table with respect to subforest size (subforest benchmark). | `bool` | `true`, `false` | `true` |
+| `config_vs_subforest_size` | Generate configuration comparison table with respect to subforest size  (subforest benchmark). | `bool` | `true`, `false` | `true` |
+| `resource_benchmark_represent` | Generate runtime and memory requirement plots for represent-operations  (resource benchmark). | `bool` | `true`, `false` | `true` |
+| `resource_benchmark_similarity` | Generate runtime and memory requirement plots for similarity-operations (resource benchmark). | `bool` | `true`, `false` | `true` |
 <br>
 
 </details>
