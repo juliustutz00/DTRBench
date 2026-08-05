@@ -15,11 +15,11 @@ from scipy.stats import pearsonr
 
 def read_perturbation_benchmark_results(results_path, REP_NAMES):
     """Read the perturbation benchmark results from a CSV file and preprocess the data.
-    
+
     Args:
         results_path (str): Path to the CSV file containing the perturbation benchmark results.
         REP_NAMES (list[str]): List of representation names to be used for similarity columns.
-        
+
     Returns:
         pert_df (pd.DataFrame): Preprocessed DataFrame containing the perturbation benchmark results.
     """
@@ -45,7 +45,7 @@ def read_perturbation_benchmark_results(results_path, REP_NAMES):
 
 def plot_rep_similarity_vs_performance_feature_importance(data, output_dir, REP_NAMES):
     """Plot the relationship between representation similarity and performance/feature importance difference for each representation.
-    
+
     Args:
         data (pd.DataFrame): DataFrame containing the perturbation benchmark results.
         output_dir (str): Directory where the plots will be saved.
@@ -121,7 +121,8 @@ def plot_rep_similarity_vs_performance_feature_importance(data, output_dir, REP_
                 uniq_ints = sorted(
                     [float(v) for v in dpp["intensity"].dropna().unique().tolist()]
                 )
-                labeled = False
+                labeled_perf = False
+                labeled_feat = False
                 for inten in uniq_ints:
                     dppi = dpp[dpp["intensity"].astype(float) == float(inten)]
                     xx_raw = dppi[f"sim_{rep_name}"]
@@ -153,9 +154,9 @@ def plot_rep_similarity_vs_performance_feature_importance(data, output_dir, REP_
                             s=18,
                             color=color_map[p],
                             alpha=alpha,
-                            label=str(p) if not labeled else None,
+                            label=str(p) if not labeled_perf else None,
                         )
-                        labeled = True
+                        labeled_perf = True
                     if len(xx_feature_importance) != 0:
                         ax_feature_importance.scatter(
                             xx_feature_importance,
@@ -163,9 +164,9 @@ def plot_rep_similarity_vs_performance_feature_importance(data, output_dir, REP_
                             s=18,
                             color=color_map[p],
                             alpha=alpha,
-                            label=str(p) if not labeled else None,
+                            label=str(p) if not labeled_feat else None,
                         )
-                        labeled = True
+                        labeled_feat = True
 
         else:
             ax_performance.scatter(
@@ -224,6 +225,17 @@ def plot_rep_similarity_vs_performance_feature_importance(data, output_dir, REP_
         )
         fig_performance.tight_layout()
         if "perturbation" in data.columns:
+            ax_performance.text(
+                0.98,
+                0.02,
+                "lighter = lower intensity\ndarker = higher intensity",
+                transform=ax_performance.transAxes,
+                ha="right",
+                va="bottom",
+                fontsize=7,
+                color="dimgray",
+            )
+
             leg = ax_performance.legend(fontsize=8, frameon=False)
             for h in leg.legend_handles:
                 h.set_alpha(1.0)
@@ -242,9 +254,21 @@ def plot_rep_similarity_vs_performance_feature_importance(data, output_dir, REP_
         )
         fig_feature_importance.tight_layout()
         if "perturbation" in data.columns:
+            ax_feature_importance.text(
+                0.98,
+                0.02,
+                "lighter = lower intensity\ndarker = higher intensity",
+                transform=ax_feature_importance.transAxes,
+                ha="right",
+                va="bottom",
+                fontsize=7,
+                color="dimgray",
+            )
+
             leg = ax_feature_importance.legend(fontsize=8, frameon=False)
             for h in leg.legend_handles:
                 h.set_alpha(1.0)
+
         fig_feature_importance.savefig(
             f"{output_dir}/fig_similarity_vs_feature_importance_{rep_name}.png",
             dpi=600,
@@ -323,7 +347,7 @@ def plot_similarity_vs_intensity_per_perturbation(
     data, output_dir, REP_NAMES, PERTURBATIONS
 ):
     """Plot the relationship between representation similarity and perturbation intensity for each perturbation type.
-    
+
     Args:
         data (pd.DataFrame): DataFrame containing the perturbation benchmark results.
         output_dir (str): Directory where the plots will be saved.
@@ -353,7 +377,9 @@ def plot_similarity_vs_intensity_per_perturbation(
         f"{c}_{s}" for c, s in _agg.columns[2:]
     ]
 
-    fig_sim_intensity, axes = plt.subplots(1, 5, figsize=(15, 3.8), sharey=True)
+    fig_sim_intensity, axes = plt.subplots(
+        1, len(perturbations_present), figsize=(15, 3.8), sharey=True
+    )
     for ax, pert in zip(axes, perturbations_present):
         sub = _agg[_agg["perturbation"] == pert].sort_values("intensity")
         for i, (col, name) in enumerate(zip(sim_cols, REP_NAMES)):
