@@ -30,7 +30,7 @@ run:
     perturbation_benchmark_results_path: "path/to/your/perturbation_benchmark_results.csv"
     subforest_selection_results_path: "path/to/your/subforest_benchmark_results.csv"
     resource_benchmark_represent_results_path: "path/to/your/resource_benchmark_represent_results.csv"
-    resource_benchmark_similarity_results_path:  "path/to/your/resource_benchmark_siimlarity_results.csv"
+    resource_benchmark_similarity_results_path:  "path/to/your/resource_benchmark_simlarity_results.csv"
     mcc_representation_selection_strategy: false
     std_representation_selection_strategy: false
     config_vs_subforest_size: false
