@@ -216,7 +216,7 @@ class INDTreeRepresentation(BaseRepresentation):
         )
 
         trainer = pl.Trainer(
-            max_epochs=1,  # 2000,
+            max_epochs=10,
             accelerator="auto",  # can be "gpu" or "cpu"
             devices=1,  # remove if accelerator="cpu"
             callbacks=[early_stop_callback],
