@@ -48,7 +48,7 @@ def run_subforest_benchmark(
     seed=0,
 ):
     """
-    Runs the subforest benchmark on a given dataset and returns the results as a DataFrame. 
+    Runs the subforest benchmark on a given dataset and returns the results as a DataFrame.
 
     Args:
         X_train (np.ndarray): Train-set.
@@ -172,7 +172,6 @@ def run_subforest_benchmark(
     # Random Subforest baseline
     for s in sizes:
         random_subforest_evals = []
-        random_subforest_agreements = []
         # 10 random subforests averaged for each size
         for idx in range(0, 10):
             rng = np.random.RandomState(seed + idx)
@@ -193,47 +192,22 @@ def run_subforest_benchmark(
                 random_subforest_eval["hard_predictions"],
                 full_forest_eval["hard_predictions"],
             )
-            random_subforest_agreements.append(random_subforest_agreement)
-        random_subforest_eval = dict(random_subforest_evals[0])
-        random_subforest_eval["metrics"] = {
-            key: float(
-                np.nanmean(
-                    [
-                        eval_result["metrics"].get(key, np.nan)
-                        for eval_result in random_subforest_evals
-                    ]
-                )
-            )
-            for key in random_subforest_evals[0]["metrics"].keys()
-        }
-        random_subforest_eval["feature_importances"] = np.nanmean(
-            [
-                eval_result["feature_importances"]
-                for eval_result in random_subforest_evals
-            ],
-            axis=0,
-        )
-        random_subforest_eval["probabilities"] = np.nanmean(
-            [eval_result["probabilities"] for eval_result in random_subforest_evals],
-            axis=0,
-        )
-        random_subforest_agreement = float(np.nanmean(random_subforest_agreements))
 
-        results.append(
-            {
-                "dataset": dataset_name,
-                "seed": int(seed),
-                "fold": int(fold_idx) if fold_idx is not None else None,
-                "representation": "Random",
-                "selection_strategy": None,
-                "full_forest_size": int(n_trees),
-                "subforest_size": int(s),
-                **shared_metric_cols(random_subforest_eval),
-                "silhouette_score": np.nan,
-                "agreement_with_full_forest": random_subforest_agreement,
-                "indices": sorted([int(i) for i in random_subforest_indices]),
-            }
-        )
+            results.append(
+                {
+                    "dataset": dataset_name,
+                    "seed": int(seed),
+                    "fold": int(fold_idx) if fold_idx is not None else None,
+                    "representation": "Random",
+                    "selection_strategy": None,
+                    "full_forest_size": int(n_trees),
+                    "subforest_size": int(s),
+                    **shared_metric_cols(random_subforest_eval),
+                    "silhouette_score": np.nan,
+                    "agreement_with_full_forest": random_subforest_agreement,
+                    "indices": sorted([int(i) for i in random_subforest_indices]),
+                }
+            )
 
     # Top OOB ACC Subforest baseline
     if oob_indices_list is None or len(oob_indices_list) < len(random_forest_trees):
