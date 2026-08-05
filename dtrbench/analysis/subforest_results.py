@@ -13,18 +13,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from copy import deepcopy
 from matplotlib.patches import Patch
 from scipy.stats import spearmanr, wilcoxon
 
 
-def read_subforest_selection_result(results_path, REP_NAMES, SUBFOREST_SIZES):
+def read_subforest_benchmark_result(
+    results_path, REP_NAMES, SUBFOREST_SIZES, SEL_STRATEGIES
+):
     """Read and process the subforest selection results from a CSV file.
-    
+
     Args:
         results_path (str): Path to the CSV file containing the subforest selection results.
         REP_NAMES (list[str]): List of representation names to filter the results.
         SUBFOREST_SIZES (list[int]): List of subforest sizes to filter the results.
-        
+        SEL_STRATEGIES (list[str]): List of selection strategies to filter the results.
     Returns:
         dict: A dictionary containing processed dataframes for representations, baselines, full forest, and single decision tree.
     """
@@ -71,6 +74,7 @@ def read_subforest_selection_result(results_path, REP_NAMES, SUBFOREST_SIZES):
     _rep = results_df[
         results_df["Representation"].isin(REP_NAMES)
         & results_df["Subforest Size"].isin(subforest_sizes)
+        & results_df["Selection Strategy"].isin(SEL_STRATEGIES)
     ].copy()
     _bl = results_df[
         results_df["Representation"].isin(baselines)
@@ -102,9 +106,17 @@ def read_subforest_selection_result(results_path, REP_NAMES, SUBFOREST_SIZES):
     return shared_values
 
 
-def plot_rf_compression(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
+def plot_rf_compression(
+    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES, show_recovery
+):
     """Plot the Random Forest Compression results, showing the relationship between subforest size and mean MCC for different representations and selection strategies.
-    
+
+    Aggregation:
+        Results are aggregated by subforest size. Representation and selection strategy
+        curves can either be averaged across the other dimension, fully combined, or
+        reduced to the best-performing configuration per representation. All reported
+        MCC values are averaged across datasets and folds.
+
     Args:
         shared_values (dict): Dictionary containing processed dataframes for different categories.
         output_dir (str): Directory where the plots will be saved.
@@ -115,6 +127,17 @@ def plot_rf_compression(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
     def _plot_line_plot(df, aggregate_values):
         sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
         palette = sns.color_palette("colorblind")
+
+        _strat_rename = {
+            "agglomerative-performance": "agp",
+            "agglomerative": "ag",
+            "combination-genetic": "ge",
+            "combination-greedy": "gr",
+            "combination-simulated_annealing": "sa",
+            "density": "de",
+            "k-medoid-performance": "kmp",
+            "k-medoid": "km",
+        }
 
         # Compute mean MCC per subforest size for each series
         if aggregate_values == "both":
@@ -145,6 +168,19 @@ def plot_rf_compression(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
                     rep_lines[strategy] = (
                         d.groupby("Subforest Size")["MCC"].mean().reset_index()
                     )
+        elif aggregate_values == "Configuration":
+            # average over configurations -> one line per representation as the best config for every representation is plotted
+            rep_lines = {}
+            for rep in REP_NAMES:
+                d = df["rep"][df["rep"]["Representation"] == rep]
+                if d.empty:
+                    continue
+                best_strategy = d.groupby("Selection Strategy")["MCC"].mean().idxmax()
+                best = d[d["Selection Strategy"] == best_strategy]
+                strategy_label = _strat_rename.get(best_strategy, best_strategy)
+                rep_lines[f"{rep} ({strategy_label})"] = (
+                    best.groupby("Subforest Size")["MCC"].mean().reset_index()
+                )
         _bl_lines = {}
         for _rep in ["Random", "Top OOB ACC", "Top OOB MCC"]:
             _sub = df["bl"][df["bl"]["Representation"] == _rep]
@@ -153,6 +189,12 @@ def plot_rf_compression(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
         # Full forest & Single DT: single horizontal value
         _ff_mcc = df["ff"]["MCC"].mean()
         _dt_mcc = df["dt"]["MCC"].mean()
+        if show_recovery:
+            ff_label = "Full Forest (Recovery = 1.000)"
+            dt_label = f"Single DT (Recovery = {_dt_mcc:.3f})"
+        else:
+            ff_label = f"Full Forest (MCC = {_ff_mcc:.3f})"
+            dt_label = f"Single DT (MCC = {_dt_mcc:.3f})"
 
         # CI for representations (±1 SE across datasets × reps × strategies per k)
         # _rep_ci = df['rep'].groupby('Subforest Size')['MCC'].sem().reset_index().rename(columns={'MCC': 'SE'})
@@ -203,37 +245,53 @@ def plot_rf_compression(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
             color=_series_colors["Full Forest"],
             linewidth=1.4,
             linestyle="--",
-            label=f"Full Forest (MCC = {_ff_mcc:.3f})",
+            label=ff_label,
         )
         ax_c.axhline(
             _dt_mcc,
             color=_series_colors["Single DT"],
             linewidth=1.4,
             linestyle=":",
-            label=f"Single DT (MCC = {_dt_mcc:.3f})",
+            label=dt_label,
         )
 
         ax_c.set_xlabel("Subforest Size $k$")
-        ax_c.set_ylabel("Mean MCC")
+        ax_c.set_xscale("log")
+        ax_c.set_ylabel(
+            "Recovery from Full Forest MCC" if show_recovery else "Mean MCC"
+        )
         ax_c.set_xticks(df["subforest_sizes"])
         ax_c.set_xticklabels([str(k) for k in df["subforest_sizes"]])
         ax_c.legend(fontsize=9.5, frameon=True, loc="lower right")
         ax_c.set_title("RF Compression: MCC vs Subforest Size")
         sns.despine(ax=ax_c, top=True, right=True)
+        suffix = "_recovery" if show_recovery else ""
         plt.tight_layout()
-        plt.savefig(f"{output_dir}/fig_compression_{aggregate_values}.png", dpi=600)
+        plt.savefig(
+            f"{output_dir}/fig_compression_{aggregate_values}{suffix}.png", dpi=600
+        )
 
+    shared_values["bl"] = _average_random_baseline(shared_values["bl"])
+    if show_recovery:
+        shared_values = _normalize_to_full_forest(shared_values, "MCC")
     _plot_line_plot(shared_values, aggregate_values="both")
     _plot_line_plot(shared_values, aggregate_values="Selection Strategy")
     _plot_line_plot(shared_values, aggregate_values="Representation")
-
+    _plot_line_plot(shared_values, aggregate_values="Configuration")
     print("Subforest Selection: Random Forest Compression - done.")
     print()
 
 
-def plot_mcc_boxplots(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
+def plot_mcc_boxplots(
+    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES, show_recovery
+):
     """Plot boxplots of MCC distributions for different representations and selection strategies, including baselines and full forest.
-    
+
+    Aggregation:
+        MCC is averaged over folds for each dataset and subforest size. Boxplots
+        display the resulting distributions grouped by representation or selection
+        strategy and each dot represents a subforest of size k in some dataset.
+
     Args:
         shared_values (dict): Dictionary containing processed dataframes for different categories.
         output_dir (str): Directory where the plots will be saved.
@@ -316,11 +374,16 @@ def plot_mcc_boxplots(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
         ax.set_ylim(ymin, ymax)
         ax.set_title(title)
         ax.set_xlabel("")
-        ax.set_ylabel("Mean MCC")
+        ax.set_ylabel("Recovery of Full Forest MCC" if show_recovery else "Mean MCC")
         ax.legend(loc="lower right", frameon=False, fontsize=10)
         sns.despine(ax=ax)
+        suffix = "_recovery" if show_recovery else ""
         plt.tight_layout()
-        plt.savefig(f"{output_dir}/fig_mcc_{file_name}.png", dpi=600)
+        plt.savefig(f"{output_dir}/fig_mcc_{file_name}{suffix}.png", dpi=600)
+
+    shared_values["bl"] = _average_random_baseline(shared_values["bl"])
+    if show_recovery:
+        shared_values = _normalize_to_full_forest(shared_values, "MCC")
 
     rep_df = (
         shared_values["rep"]
@@ -346,7 +409,9 @@ def plot_mcc_boxplots(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
         x="Representation",
         full_forest_mcc=full_forest_mcc,
         single_DT_mcc=single_DT_mcc,
-        title="MCC Distribution by Representation",
+        title="MCC Recovery Distribution by Representation"
+        if show_recovery
+        else "MCC Distribution by Representation",
         file_name="representation",
         preferred_order=REP_NAMES + ["Random", "Top OOB ACC", "Top OOB MCC"],
     )
@@ -356,7 +421,9 @@ def plot_mcc_boxplots(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
         x="Selection Strategy",
         full_forest_mcc=full_forest_mcc,
         single_DT_mcc=single_DT_mcc,
-        title="MCC Distribution by Selection Strategy",
+        title="MCC Recovery Distribution by Selection Strategy"
+        if show_recovery
+        else "MCC Distribution by Selection Strategy",
         file_name="selection_strategy",
         preferred_order=SEL_STRATEGIES + ["Random", "Top OOB ACC", "Top OOB MCC"],
     )
@@ -366,10 +433,14 @@ def plot_mcc_boxplots(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
 
 
 def plot_mcc_representation_selection_strategy(
-    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES
+    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES, show_recovery
 ):
     """Plot a heatmap showing the mean MCC for each combination of representation and selection strategy.
-    
+
+    Aggregation:
+        Each heatmap cell shows the mean MCC of a representation–selection strategy
+        combination, averaged across folds, datasets, and subforest sizes.
+
     Args:
         shared_values (dict): Dictionary containing processed dataframes for different categories.
         output_dir (str): Directory where the plots will be saved.
@@ -377,6 +448,10 @@ def plot_mcc_representation_selection_strategy(
         SEL_STRATEGIES (list[str]): List of selection strategies to be considered.
     """
     sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+
+    shared_values["bl"] = _average_random_baseline(shared_values["bl"])
+    if show_recovery:
+        shared_values = _normalize_to_full_forest(shared_values, "MCC")
 
     _heatmap_base = (
         shared_values["rep"]
@@ -464,7 +539,9 @@ def plot_mcc_representation_selection_strategy(
         annot_kws={"size": 8},
         linewidths=0.4,
         linecolor="white",
-        cbar_kws={"label": "Mean MCC"},
+        cbar_kws={
+            "label": "MCC Recovery of Full Forest" if show_recovery else "Mean MCC"
+        },
     )
 
     baseline_rows = ["Full Forest", "Top OOB MCC", "Top OOB ACC", "Random", "Single DT"]
@@ -499,14 +576,18 @@ def plot_mcc_representation_selection_strategy(
             color=text_color,
             zorder=4,
         )
-        ax_hm.set_title("Representation × Selection Strategy — Mean MCC")
+        ax_hm.set_title(
+            "Representation × Selection Strategy — "
+            + ("Recovery" if show_recovery else "Mean MCC")
+        )
         ax_hm.set_xlabel("Selection Strategy")
         ax_hm.set_ylabel("Representation")
         ax_hm.tick_params(axis="x", rotation=40)
         ax_hm.tick_params(axis="y", rotation=0)
 
+    suffix = "_recovery" if show_recovery else ""
     plt.tight_layout()
-    plt.savefig(f"{output_dir}/heatmap_mcc.png", dpi=600)
+    plt.savefig(f"{output_dir}/heatmap_mcc{suffix}.png", dpi=600)
     print(
         "Subforest Selection: Heatmap of mean MCC (Representation × Selection Strategy) - done."
     )
@@ -514,9 +595,13 @@ def plot_mcc_representation_selection_strategy(
 
 
 def plot_std_representation_selection_strategy(
-    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES
+    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES, show_recovery
 ):
     """Plot a heatmap showing the standard deviation of MCC for each combination of representation and selection strategy.
+
+    Aggregation:
+        Fold-wise MCC standard deviations are averaged over subforest sizes and, for
+        recovery plots, normalized to the Full Forest and averaged across datasets.
 
     Args:
         shared_values (dict): Dictionary containing processed dataframes for different categories.
@@ -527,6 +612,8 @@ def plot_std_representation_selection_strategy(
 
     sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
 
+    shared_values["bl"] = _average_random_baseline(shared_values["bl"])
+
     _heatmap_base = (
         shared_values["rep"]
         .groupby(["Representation", "Selection Strategy", "Dataset", "Subforest Size"])[
@@ -536,7 +623,7 @@ def plot_std_representation_selection_strategy(
         .reset_index()
     )
     _heatmap_agg = (
-        _heatmap_base.groupby(["Representation", "Selection Strategy"])
+        _heatmap_base.groupby(["Representation", "Selection Strategy", "Dataset"])
         .agg(final_mean=("fold_mean", "mean"), final_std=("fold_std", "mean"))
         .reset_index()
     )
@@ -545,10 +632,20 @@ def plot_std_representation_selection_strategy(
         [shared_values["bl"], shared_values["ff"], shared_values["dt"]],
         ignore_index=True,
     )
-
-    _fixed = _fixed.groupby(["Representation", "Dataset"])["MCC"].std().reset_index()
     _fixed = (
-        _fixed.groupby("Representation")["MCC"].mean().reset_index(name="final_std")
+        _fixed.groupby(["Representation", "Dataset", "Fold", "Subforest Size"])["MCC"]
+        .mean()
+        .reset_index()
+    )
+    _fixed = (
+        _fixed.groupby(["Representation", "Dataset"])["MCC"]
+        .std()
+        .reset_index(name="fold_std")
+    )
+    _fixed = (
+        _fixed.groupby(["Representation", "Dataset"])["fold_std"]
+        .mean()
+        .reset_index(name="final_std")
     )
     strategy_df = pd.DataFrame({"Selection Strategy": SEL_STRATEGIES})
     _fixed_expanded = (
@@ -559,10 +656,34 @@ def plot_std_representation_selection_strategy(
 
     heatmap_df = pd.concat(
         [
-            _heatmap_agg[["Representation", "Selection Strategy", "final_std"]],
-            _fixed_expanded[["Representation", "Selection Strategy", "final_std"]],
+            _heatmap_agg[
+                ["Representation", "Selection Strategy", "Dataset", "final_std"]
+            ],
+            _fixed_expanded[
+                ["Representation", "Selection Strategy", "Dataset", "final_std"]
+            ],
         ],
         ignore_index=True,
+    )
+
+    if show_recovery:
+        full_forest_std = heatmap_df[heatmap_df["Representation"] == "Full Forest"][
+            ["Dataset", "final_std"]
+        ].rename(columns={"final_std": "full_forest_std"})
+        heatmap_df = heatmap_df.merge(
+            full_forest_std,
+            on="Dataset",
+            how="left",
+        )
+        heatmap_df["final_std"] = (
+            heatmap_df["final_std"] / heatmap_df["full_forest_std"]
+        )
+        heatmap_df = heatmap_df.drop(columns="full_forest_std")
+
+    heatmap_df = (
+        heatmap_df.groupby(["Representation", "Selection Strategy"])["final_std"]
+        .mean()
+        .reset_index()
     )
 
     _strat_rename = {
@@ -615,7 +736,9 @@ def plot_std_representation_selection_strategy(
         annot_kws={"size": 8},
         linewidths=0.4,
         linecolor="white",
-        cbar_kws={"label": "Std of MCC"},
+        cbar_kws={
+            "label": "Std ratio to Full Forest" if show_recovery else "Std of MCC"
+        },
     )
 
     baseline_rows = ["Full Forest", "Top OOB MCC", "Top OOB ACC", "Random", "Single DT"]
@@ -650,28 +773,45 @@ def plot_std_representation_selection_strategy(
             color=text_color,
             zorder=4,
         )
-        ax_hs.set_title("Representation × Selection Strategy — MCC Standard Deviation")
+        ax_hs.set_title(
+            "Representation × Selection Strategy — "
+            + (
+                "Recovery Standard Deviation"
+                if show_recovery
+                else "MCC Standard Deviation"
+            )
+        )
         ax_hs.set_xlabel("Selection Strategy")
         ax_hs.set_ylabel("Representation")
         ax_hs.tick_params(axis="x", rotation=40)
         ax_hs.tick_params(axis="y", rotation=0)
 
-    ax_hs.set_title("Representation × Selection Strategy — MCC Standard Deviation")
+    ax_hs.set_title(
+        "Representation × Selection Strategy — "
+        + ("Recovery Standard Deviation" if show_recovery else "MCC Standard Deviation")
+    )
     ax_hs.set_xlabel("Selection Strategy")
     ax_hs.set_ylabel("Representation")
     ax_hs.tick_params(axis="x", rotation=40)
     ax_hs.tick_params(axis="y", rotation=0)
+    suffix = "_recovery" if show_recovery else ""
     plt.tight_layout()
-    plt.savefig(f"{output_dir}/heatmap_std.png", dpi=600)
+    plt.savefig(f"{output_dir}/heatmap_std{suffix}.png", dpi=600)
     print(
         "Subforest Selection: Heatmap of MCC standard deviation (Representation × Selection Strategy) - done."
     )
     print()
 
 
-def plot_kendalls_w_vs_config(shared_values, output_dir, REP_NAMES, SEL_STRATEGIES):
+def plot_kendalls_w_vs_config(
+    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES, show_recovery
+):
     """Plot Kendall's W for feature importance rankings across different configurations of representations and selection strategies.
-    
+
+    Aggregation:
+        Kendall's W is computed across folds and averaged across datasets and
+        subforest sizes for each representation–selection strategy combination.
+
     Args:
         shared_values (dict): Dictionary containing processed dataframes for different categories.
         output_dir (str): Directory where the plots will be saved.
@@ -681,6 +821,8 @@ def plot_kendalls_w_vs_config(shared_values, output_dir, REP_NAMES, SEL_STRATEGI
 
     sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
     palette = sns.color_palette("colorblind")
+
+    shared_values["bl"] = _average_random_baseline(shared_values["bl"])
 
     def _safe_parse_fi(x):
         if pd.isnull(x) or str(x).strip() in ("", "nan", "None"):
@@ -781,6 +923,7 @@ def plot_kendalls_w_vs_config(shared_values, output_dir, REP_NAMES, SEL_STRATEGI
     )
     _kw_cfg = _kw_cfg.sort_values("Kendall_W", ascending=True).reset_index(drop=True)
 
+    # barplot
     # Color bars by Representation
     _rep_color_map = {
         "Tree Descriptor": palette[0],
@@ -883,16 +1026,180 @@ def plot_kendalls_w_vs_config(shared_values, output_dir, REP_NAMES, SEL_STRATEGI
 
     sns.despine(ax=ax_kw, top=True, right=True)
     plt.tight_layout()
-    plt.savefig(f"{output_dir}/fig_kendall_configurations.png", dpi=600)
+    plt.savefig(f"{output_dir}/fig_kendall_configurations_barplot.png", dpi=600)
+
+    # heatmap
+    _fixed_kw = []
+
+    # Full Forest
+    for (ds, k), grp in _ff_fi.groupby(["Dataset", "Subforest Size"]):
+        _fixed_kw.append(
+            {
+                "Representation": "Full Forest",
+                "Selection Strategy": "",
+                "Kendall_W": _kendall_w(grp["FI_arr"].tolist()),
+            }
+        )
+
+    # Single DT
+    for (ds, k), grp in _dt_fi.groupby(["Dataset", "Subforest Size"]):
+        _fixed_kw.append(
+            {
+                "Representation": "Single DT",
+                "Selection Strategy": "",
+                "Kendall_W": _kendall_w(grp["FI_arr"].tolist()),
+            }
+        )
+
+    # Random baseline
+    for (ds, rep, k), grp in shared_values["bl"].groupby(
+        ["Dataset", "Representation", "Subforest Size"]
+    ):
+        _fixed_kw.append(
+            {
+                "Representation": rep,
+                "Selection Strategy": "",
+                "Kendall_W": _kendall_w(grp["FI_arr"].tolist()),
+            }
+        )
+
+    _fixed_kw = pd.DataFrame(_fixed_kw)
+
+    # Average baseline values
+    _fixed_kw = _fixed_kw.groupby("Representation")["Kendall_W"].mean().reset_index()
+
+    # Expand baselines over strategies to create heatmap rows
+    _fixed_expanded = (
+        _fixed_kw.assign(key=1)
+        .merge(
+            pd.DataFrame({"Selection Strategy": SEL_STRATEGIES, "key": 1}),
+            on="key",
+        )
+        .drop(columns="key")
+    )
+
+    _heatmap_kw = pd.concat(
+        [
+            _kw_cfg[["Representation", "Selection Strategy", "Kendall_W"]],
+            _fixed_expanded,
+        ],
+        ignore_index=True,
+    )
+
+    _pivot_kw = _heatmap_kw.pivot(
+        index="Representation",
+        columns="Selection Strategy",
+        values="Kendall_W",
+    )
+
+    _pivot_kw.columns = [
+        _strat_rename.get(c, c) if c != "" else c for c in _pivot_kw.columns
+    ]
+
+    strategy_order = [_strat_rename.get(s, s) for s in SEL_STRATEGIES]
+    _pivot_kw = _pivot_kw.reindex(columns=strategy_order)
+
+    # Rename representations
+    _pivot_kw.index = [
+        r.replace("Tree Descriptor", "TD")
+        .replace("Leaf Profile", "LP")
+        .replace("Feature Graph", "FG")
+        .replace("Topological Forest", "TF")
+        .replace("INDTree", "ID")
+        for r in _pivot_kw.index
+    ]
+
+    representation_order = [
+        r.replace("Tree Descriptor", "TD")
+        .replace("Leaf Profile", "LP")
+        .replace("Feature Graph", "FG")
+        .replace("Topological Forest", "TF")
+        .replace("INDTree", "ID")
+        for r in REP_NAMES
+    ]
+
+    final_order = (
+        ["Full Forest"]
+        + representation_order
+        + ["Top OOB MCC", "Top OOB ACC", "Random", "Single DT"]
+    )
+
+    _pivot_kw = _pivot_kw.reindex([r for r in final_order if r in _pivot_kw.index])
+
+    fig_kw_heatmap, ax_kw_hm = plt.subplots(figsize=(10, 3.8))
+
+    sns.heatmap(
+        _pivot_kw,
+        ax=ax_kw_hm,
+        cmap="YlGnBu",
+        annot=True,
+        fmt=".3f",
+        annot_kws={"size": 8},
+        linewidths=0.4,
+        linecolor="white",
+        cbar_kws={"label": "Mean Kendall's $W$"},
+    )
+
+    baseline_rows = ["Full Forest", "Top OOB MCC", "Top OOB ACC", "Random", "Single DT"]
+    ncols = _pivot_kw.shape[1]
+    mesh = ax_kw_hm.collections[0]
+    cmap = mesh.cmap
+    norm = mesh.norm
+    for row_name in baseline_rows:
+        if row_name not in _pivot_kw.index:
+            continue
+        y = _pivot_kw.index.get_loc(row_name)
+        val = _pivot_kw.loc[row_name].iloc[0]
+        rect = plt.Rectangle(
+            (0, y),
+            ncols,
+            1,
+            facecolor=cmap(norm(val)),
+            edgecolor="white",
+            linewidth=0.4,
+            zorder=3,
+        )
+        ax_kw_hm.add_patch(rect)
+        r, g, b, _ = cmap(norm(val))
+        text_color = "white" if (0.299 * r + 0.587 * g + 0.114 * b) < 0.5 else "black"
+        ax_kw_hm.text(
+            ncols / 2,
+            y + 0.5,
+            f"{val:.3f}",
+            ha="center",
+            va="center",
+            fontsize=8,
+            color=text_color,
+            zorder=4,
+        )
+
+    ax_kw_hm.set_title(
+        "Representation × Selection Strategy — Feature Importance Stability"
+    )
+    ax_kw_hm.set_xlabel("Selection Strategy")
+    ax_kw_hm.set_ylabel("Representation")
+    ax_kw_hm.tick_params(axis="x", rotation=40)
+    ax_kw_hm.tick_params(axis="y", rotation=0)
+
+    plt.tight_layout()
+    plt.savefig(
+        f"{output_dir}/heatmap_kendall_configurations.png",
+        dpi=600,
+    )
 
     print("Subforest Selection: Kendall's W vs Configuration - done.")
     print()
 
 
 def plot_spearman_vs_subforest_size(
-    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES
+    shared_values, output_dir, REP_NAMES, SEL_STRATEGIES, show_recovery
 ):
     """Plot Spearman correlation of feature importance rankings between subforests and full forests across different representations and selection strategies.
+
+    Aggregation:
+        Spearman correlations with the corresponding full forest are averaged across
+        datasets, seeds, and folds for each representation, selection strategy, and
+        subforest size.
 
     Args:
         shared_values (dict): Dictionary containing processed dataframes for different categories.
@@ -1087,14 +1394,23 @@ def plot_spearman_vs_subforest_size(
     print()
 
 
-def print_representation_vs_subforest_size(shared_values, output_dir, REP_NAMES):
+def print_representation_vs_subforest_size(
+    shared_values, output_dir, REP_NAMES, show_recovery
+):
     """Generate a LaTeX table summarizing the mean MCC and standard deviation for each representation and subforest size.
-    
+
+    Aggregation:
+        Results are averaged across folds and datasets; representation-based methods
+        are additionally averaged over selection strategies for each subforest size.
+
     Args:
         shared_values (dict): Dictionary containing processed dataframes for different categories.
         output_dir (str): Directory where the LaTeX table will be saved.
         REP_NAMES (list[str]): List of representation names to be considered.
     """
+    shared_values["bl"] = _average_random_baseline(shared_values["bl"])
+    if show_recovery:
+        shared_values = _normalize_to_full_forest(shared_values, "MCC")
 
     _ff = shared_values["ff"].groupby(["Dataset"])["MCC"].mean()
     ff_mean = _ff.mean()
@@ -1150,11 +1466,14 @@ def print_representation_vs_subforest_size(shared_values, output_dir, REP_NAMES)
             value = f"\\mathbf{{{value}}}"
         return f"${value} \\pm {std:.3f}$"
 
+    metric_name = "Recovery" if show_recovery else "MCC"
     _col_header = " & ".join([f"$k={k}$" for k in shared_values["subforest_sizes"]])
     _latex_table1_lines = [
         "\\begin{table}[ht]",
         "  \\centering",
-        "  \\caption{Average test MCC (standard deviation in parentheses) per representation and subforest size, averaged across all selection strategies, datasets, and folds. Underline: best representation for each $k$. Bold: best overall method for each $k$.}",
+        "  \\caption{Average test "
+        + metric_name
+        + " (standard deviation in parentheses) per representation and subforest size, averaged across all selection strategies, datasets, and folds. Underline: best representation for each $k$. Bold: best overall method for each $k$.}",
         "  \\label{tab:rep_mcc}",
         f"  \\begin{{tabular}}{{l{'c' * len(shared_values['subforest_sizes'])}}}",
         "    \\toprule",
@@ -1206,20 +1525,31 @@ def print_representation_vs_subforest_size(shared_values, output_dir, REP_NAMES)
         "\\end{table}",
     ]
     _latex_table1 = "\n".join(_latex_table1_lines)
-    with open(f"{output_dir}/table_representation_vs_subforest_size.txt", "w") as f:
+    suffix = "_recovery" if show_recovery else ""
+    with open(
+        f"{output_dir}/table_representation_vs_subforest_size{suffix}.txt", "w"
+    ) as f:
         f.write(_latex_table1)
     print("Subforest Selection: Representation vs Subforest Size Table (LaTeX) - done.")
     print()
 
 
-def print_config_vs_subforest_size(shared_values, output_dir):
+def print_config_vs_subforest_size(shared_values, output_dir, show_recovery):
     """Generate a LaTeX table summarizing the mean MCC, standard deviation, and significance percentage for each configuration and subforest size.
-    
+
+    Aggregation:
+        MCC values are averaged across folds and datasets for each configuration and
+        subforest size. Significance percentages are based on Wilcoxon tests of the
+        fold-averaged dataset-level results.
+
     Args:
         shared_values (dict): Dictionary containing processed dataframes for different categories.
         output_dir (str): Directory where the LaTeX table will be saved.
     """
-    
+    shared_values["bl"] = _average_random_baseline(shared_values["bl"])
+    if show_recovery:
+        shared_values = _normalize_to_full_forest(shared_values, "MCC")
+
     _ff = (
         shared_values["ff"]
         .groupby(["Dataset"])["MCC"]
@@ -1443,11 +1773,14 @@ def print_config_vs_subforest_size(shared_values, output_dir):
 
         return lines
 
+    metric_name = "recovery relative to the full forest" if show_recovery else "MCC"
     _latex_table2_lines = [
         "\\begin{table}[ht]",
         "  \\centering",
-        "  \\caption{Per-configuration performance across subforest sizes. Each cell reports the mean MCC values and their mean standard deviation. Bold: best overall value per $k$. Underline: best value among all configurations per $k$.}",
-        "  \\label{tab:config_mcc}",
+        "  \\caption{Per-configuration performance across subforest sizes. Each cell reports the mean "
+        + metric_name
+        + " values and their mean standard deviation. Bold: best overall value per $k$. Underline: best value among all configurations per $k$.}",
+        "  \\label{tab:config_MCC}",
         "  \\resizebox{\\textwidth}{!}{%",
     ]
 
@@ -1460,7 +1793,73 @@ def print_config_vs_subforest_size(shared_values, output_dir):
 
     _latex_table2 = "\n".join(_latex_table2_lines)
 
-    with open(f"{output_dir}/table_config_vs_subforest_size.txt", "w") as f:
+    suffix = "_recovery" if show_recovery else ""
+    with open(f"{output_dir}/table_config_vs_subforest_size{suffix}.txt", "w") as f:
         f.write(_latex_table2)
     print("Subforest Selection: Configuration vs Subforest Size Table (LaTeX) - done.")
     print()
+
+
+def _average_random_baseline(df):
+    df = df.copy()
+
+    random = df[df["Representation"] == "Random"].copy()
+    other = df[df["Representation"] != "Random"].copy()
+
+    group_cols = [
+        "Dataset",
+        "Seed",
+        "Fold",
+        "Representation",
+        "Selection Strategy",
+        "Full Forest Size",
+        "Subforest Size",
+    ]
+
+    def mean_array(series):
+        arrays = np.stack(series.apply(ast.literal_eval).apply(np.asarray))
+        return str(arrays.mean(axis=0).tolist())
+
+    agg = {}
+
+    for col in random.columns:
+        if col in group_cols:
+            continue
+        elif col == "Feature Importances":
+            agg[col] = mean_array
+        elif pd.api.types.is_numeric_dtype(random[col]):
+            agg[col] = "mean"
+        else:
+            agg[col] = "first"
+
+    random = random.groupby(group_cols, dropna=False, as_index=False).agg(agg)
+
+    return pd.concat([other, random], ignore_index=True)
+
+
+def _normalize_to_full_forest(shared_values, metric="MCC"):
+    """Return a copy of shared_values where the given metric is expressed
+    relative to the corresponding Full Forest performance.
+
+    Recovery = metric / Full Forest metric.
+
+    Args:
+        shared_values (dict): Dictionary containing processed dataframes for different categories.
+        metric (str): The metric to normalize (default is "MCC").
+
+    Returns:
+        dict: A new dictionary with the same structure as shared_values, but with the specified metric normalized to the Full Forest performance.
+    """
+    normalized = deepcopy(shared_values)
+    ff_lookup = (
+        normalized["ff"].set_index(["Dataset", "Fold", "Seed"])[metric].to_dict()
+    )
+    for key in ["rep", "bl", "dt"]:
+        df = normalized[key]
+        full_metric = df.apply(
+            lambda row: ff_lookup[(row["Dataset"], row["Fold"], row["Seed"])],
+            axis=1,
+        )
+        df[metric] = df[metric] / full_metric
+    normalized["ff"][metric] = 1.0
+    return normalized
