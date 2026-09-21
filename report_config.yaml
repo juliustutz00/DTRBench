@@ -1,5 +1,5 @@
 defaults:
-  representations: ["Tree Descriptor", "Leaf Profile", "Feature Graph", "Topological Forest", "INDTree"]
+  representations: ["Tree Descriptor", "Prediction Profile", "Leaf Profile", "Feature Graph", "Topological Forest", "INDTree"]
   perturbations: ["change_threshold", "change_feature", "swap_nodes", "remove_nodes", "add_nodes"]
   subforest_sizes: [2, 5, 10, 15, 20, 25, 30]
   selection_strategies: ["k-medoid", "k-medoid-performance", "agglomerative", "agglomerative-performance", "density", "combination-greedy", "combination-simulated_annealing", "combination-genetic"]
