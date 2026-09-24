@@ -43,4 +43,4 @@ class PredictionProfileRepresentation(BaseRepresentation):
 
         cohen_kappa = cohen_kappa_score(predictions_a, predictions_b)
 
-        return float(cohen_kappa)
+        return float((cohen_kappa + 1.0) / 2.0)
