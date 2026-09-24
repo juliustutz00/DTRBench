@@ -70,6 +70,7 @@ The available dataset names are listed in Section [Configs](#configs).
 Benchmark results are stored in the results folder. Each benchmark run produces a .csv file with the results and a .json file containing benchmark metadata. Reports generate plots and/or tables according to the selected options in the report configuration.
 
 <h3>Reproducing Paper Results</h3>
+
 The [`analysis/`](analysis) directory contains the code and results required to reconstruct the figures and tables presented in the corresponding paper. It includes the analysis scripts, processed benchmark results, and other resources needed to reproduce the reported analyses.
 
 The analysis can be run independently of the benchmark execution described above.
