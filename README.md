@@ -6,7 +6,7 @@ Representations of said decision trees enable a structural and functional compar
 
 This benchmark therefore explores the usefulness of different decision tree representations more broadly by  
 (i) assessing the representations in an isolated setting by using controlled perturbations and measuring correlations between representation distances, performance differences, and feature importance shift,  
-(ii) estimating the representation’s effectiveness on downstream tasks by using their distances for a diverse subforest selection which is then compared against a single decision tree and subforests chosen at random or solely based on out-of-bag (OOB) accuracy/MCC, and  
+(ii) estimating the representation’s effectiveness on downstream tasks by using their distances for a diverse subforest selection which is then compared against subforests chosen at random or solely based on out-of-bag (OOB) accuracy/MCC, and  
 (iii) measuring the runtime and memory requirements of each representation.
 
 <details open>
