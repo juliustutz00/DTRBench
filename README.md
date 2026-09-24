@@ -146,7 +146,8 @@ All generated plots and tables are stored in the configured output directory. In
 | INDTree | [Spinnato et al.](https://www.esann.org/sites/default/files/proceedings/2025/ES2025-85.pdf) | Network Weights | Embedding Space Euclidean Distance |
 
 The following figure shows how a simple decision tree is converted into each respective representation.
-<img width="1002" height="1178" alt="image" src="https://github.com/user-attachments/assets/cab588d5-2b79-4e3f-a66d-8220eac6c427" />
+<img width="858" height="1054" alt="image" src="https://github.com/user-attachments/assets/5344beaf-cb6b-4faa-9830-b78653274524" />
+
 
 </details>
 
