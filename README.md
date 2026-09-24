@@ -1,10 +1,10 @@
 # DTRBench
 
-Comparing decision trees is inherently non-trivial due to their structure. While there exist potential tree distance measures, these focus on structure and do not capture the functionality of the underlying decision trees.
+Comparing decision trees is inherently non-trivial due to their structure.
 
-Representations of said decision trees enable a structural and functional comparison by abstracting some information and thereby gaining the ability to quantify similarity.
+Representations of said decision trees enable a structural and functional comparison by abstracting some information and thereby gaining the ability to quantify similarity. However, existing representations have only been evaluated on narrow tasks.
 
-This benchmark therefore explores the usefulness of different decision tree representations by  
+This benchmark therefore explores the usefulness of different decision tree representations more broadly by  
 (i) assessing the representations in an isolated setting by using controlled perturbations and measuring correlations between representation distances, performance differences, and feature importance shift,  
 (ii) estimating the representation’s effectiveness on downstream tasks by using their distances for a diverse subforest selection which is then compared against a single decision tree and subforests chosen at random or solely based on out-of-bag (OOB) accuracy/MCC, and  
 (iii) measuring the runtime and memory requirements of each representation.
@@ -139,7 +139,8 @@ All generated plots and tables are stored in the configured output directory. In
 | **Representation** | **Reference** | **Type** | **Distance** |
 | --- | --- | --- | --- |
 | Tree Descriptor | (novel) | Metric Vector | Cosine Distance |
-| Leaf Profile | (novel) | Distribution Vector | Earth Mover's Distance |
+| Leaf Profile | [Ntoutsi et al.](https://doi.org/10.1137/1.9781611972788.73) | Distribution Vector | 1-Wasserstein Distance |
+| Prediction Profile | [Margineantu & Dietterich](https://web.engr.oregonstate.edu/~tgd/publications/ml97-pruning-adaboost.pdf) | Prediction Vector | Cohen's Kappa |
 | Feature Graph | [Sirocchi et al.](https://doi.org/10.1186/s13040-025-00430-3) | Graph | Correlation-adjusted Frobenius Distance |
 | Topological Forest | [Bayir et al.](https://doi.org/10.1109/ACCESS.2022.3229008) | Metric Vector | Mapper Graph Shortest-Path |
 | INDTree | [Spinnato et al.](https://www.esann.org/sites/default/files/proceedings/2025/ES2025-85.pdf) | Network Weights | Embedding Space Euclidean Distance |
@@ -294,12 +295,13 @@ Available built-in selection strategies:
 
 | Parameter | Description | Type | Allowed values | Default |
 |-----------|-------------|------|----------------|---------|
-| `representations` | Representations evaluated during the benchmark. Custom representations can be added through the representation register. | `list[str]` | Registered representation names | `["Tree Descriptor", "Leaf Profile", "Feature Graph", "Topological Forest", "INDTree"]` |
+| `representations` | Representations evaluated during the benchmark. Custom representations can be added through the representation register. | `list[str]` | Registered representation names | `["Tree Descriptor", "Leaf Profile", "Prediction Profile", "Feature Graph", "Topological Forest", "INDTree"]` |
 
 Available built-in representations:
 
 - `Tree Descriptor`
 - `Leaf Profile`
+- `Prediction Profile`
 - `Feature Graph`
 - `Topological Forest`
 - `INDTree`
@@ -329,7 +331,7 @@ These options control which representations, perturbations, subforest sizes, and
 
 | Parameter | Description | Type | Allowed values | Default |
 |-----------|-------------|------|----------------|---------|
-| `representations` | Representations to include in plots and tables. The order of the list determines the order in which representations are displayed. Custom representations can be added through the representation register. | `list[str]` | Registered representation names | `["Tree Descriptor", "Leaf Profile", "Feature Graph", "Topological Forest", "INDTree"]` |
+| `representations` | Representations to include in plots and tables. The order of the list determines the order in which representations are displayed. Custom representations can be added through the representation register. | `list[str]` | Registered representation names | `["Tree Descriptor", "Leaf Profile", "Prediction Profile", "Feature Graph", "Topological Forest", "INDTree"]` |
 | `perturbations` | Perturbation methods to include in plots and tables. The order of the list determines the order in which perturbations are displayed. Custom perturbations can be added through the perturbation register. | `list[str]` | Registered perturbation names | `["change_threshold", "change_feature", "swap_nodes", "remove_nodes", "add_nodes"]` |
 | `subforest_sizes` | Subforest sizes considered for plots and tables. Values must not exceed the configured `random_forest_size`. | `list[int]` | Values between `1` and `random_forest_size` | `[5, 10, 15, 20, 25, 30]` |
 | `selection_strategies` | Selection strategies to include in plots and tables. The order of the list determines the order in which strategies are displayed. Custom strategies can be added through the selection strategy register. | `list[str]` | Registered selection strategy names | `["k-medoid", "k-medoid-performance", "agglomerative", "agglomerative-performance", "density", "combination-greedy", "combination-simulated_annealing", "combination-genetic"]` |
@@ -339,6 +341,7 @@ Available built-in representations:
 
 - `Tree Descriptor`
 - `Leaf Profile`
+- `Prediction Profile`
 - `Feature Graph`
 - `Topological Forest`
 - `INDTree`
@@ -403,6 +406,8 @@ These options control which individual plots and tables are generated.
 
 * Only works for classification tasks; regression tasks are not supported
 * Only works with numerical features; categorical/binary features are not supported (except for the perturbations, they support categorical data)
+* Only works for standard RF ensembles: boosting tree ensembles are not supported
 * Only implements 25 UCI dataset; other types of datasets (e.g., HDLSS) are not included by default
+* Only implements non-GNN-representations
 
 </details>
