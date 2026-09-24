@@ -7,6 +7,7 @@ import math
 DEFAULT_REPRESENTATIONS = [
     "Tree Descriptor",
     "Leaf Profile",
+    "Prediction Profile",
     "Feature Graph",
 ]
 
@@ -67,6 +68,7 @@ DEFAULT_BENCHMARK_RUNS = [
             "Feature Graph",
             "Tree Descriptor",
             "Leaf Profile",
+            "Prediction Profile",
         ],
         "run_topological_forest": True,
         "run_indtree": True,
