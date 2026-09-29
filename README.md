@@ -111,13 +111,40 @@ The reporting module analyzes benchmark results and generates plots and summary 
 
 Reports can be generated from results of one or multiple datasets. When multiple datasets are provided, results are aggregated across datasets before creating plots and statistics.
 
-The generated reports are organized according to the three benchmark types:
+The generated reports are organized according to the three benchmark types (sample reports are shown):
 
 <h3>Perturbation Benchmark Reports</h3>
 
 These reports analyze whether representation distances reflect meaningful changes in decision trees. Generated analyses include:
 - Representation similarity versus predictive performance and feature importance shift.
 - Representation similarity as a function of perturbation intensity for each perturbation type.
+<details>
+<summary><strong>Example plots</strong></summary>
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/3ecefe3a-ba04-4194-9b4d-fd399fd3b23a">
+    <img src="https://github.com/user-attachments/assets/3ecefe3a-ba04-4194-9b4d-fd399fd3b23a"
+         width="400"
+         alt="Representation similarity vs predictive performance" />
+  </a>
+  <a href="https://github.com/user-attachments/assets/f8bdae50-41f9-4b11-b6f1-a7849d9ecec9">
+    <img src="https://github.com/user-attachments/assets/f8bdae50-41f9-4b11-b6f1-a7849d9ecec9"
+         width="400"
+         alt="Representation similarity vs feature importance" />
+  </a>
+</p>
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/c2655b50-4d6c-4742-a996-ab61ada78b6d">
+    <img src="https://github.com/user-attachments/assets/c2655b50-4d6c-4742-a996-ab61ada78b6d"
+         width="400"
+         alt="Combined similarity analysis" />
+  </a>
+  <a href="https://github.com/user-attachments/assets/4df02c3c-0c24-4a00-91d1-23a2678142d9">
+    <img src="https://github.com/user-attachments/assets/4df02c3c-0c24-4a00-91d1-23a2678142d9"
+         width="400"
+         alt="Similarity vs perturbation intensity" />
+  </a>
+</p>
+</details>
 
 <h3>Subforest Benchmark Reports</h3>
 
@@ -128,12 +155,69 @@ These reports evaluate the effectiveness of representation-based tree selection 
 - Agreement between configurations using Kendall's W.
 - Correlation between representation distances and subforest size using Spearman correlation.
 - Summary tables comparing representations and configurations across different subforest sizes.
+<details>
+<summary><strong>Example plots and tables</strong></summary>
+<p align="center">
+  <img width="400" alt="fig_compression_Representation" src="https://github.com/user-attachments/assets/1ee3f724-f44d-4148-a2ad-e34f92a2cfb0" />
+  <img width="400" alt="fig_mcc_representation_recovery" src="https://github.com/user-attachments/assets/f594a741-61e3-4551-89b8-27c7c292eaef" />
+</p>
+<p align="center">
+  <img width="400" alt="heatmap_mcc_recovery" src="https://github.com/user-attachments/assets/ed04870d-c516-4d22-bad5-df4f9828307d" />
+  <img width="400" alt="heatmap_std_recovery" src="https://github.com/user-attachments/assets/8c5375d9-280a-47c3-b19d-f502f52f2dac" />
+</p>
+<p align="center">
+  <img width="400" alt="heatmap_kendall_configurations" src="https://github.com/user-attachments/assets/dd6a0de7-78bd-4756-b21e-85c5ddffd8a1" />
+  <img width="400" alt="fig_spearman_full_forest" src="https://github.com/user-attachments/assets/730eef39-a0a6-4bcc-82d6-f84f5390d3c2" />
+</p>
+
+<p align="center">
+
+Average test Recovery (standard deviation in parentheses), averaged across all selection strategies, datasets, and folds.
+
+<b>Bold</b>: best overall method for each $k$.
+
+<u>Underline</u>: best representation for each $k$.
+
+| Representation | k = 20 | k = 27 | k = 38 | k = 53 | k = 73 |
+|:---|---:|---:|---:|---:|---:|
+| Full Forest | 1.000 ± 0.000 | 1.000 ± 0.000 | 1.000 ± 0.000 | 1.000 ± 0.000 | 1.000 ± 0.000 |
+| Single DT | 0.786 ± 0.140 | 0.786 ± 0.140 | 0.786 ± 0.140 | 0.786 ± 0.140 | 0.786 ± 0.140 |
+| Top OOB MCC | 0.986 ± 0.079 | 0.994 ± 0.081 | 0.994 ± 0.083 | 0.982 ± 0.077 | 0.988 ± 0.074 |
+| Top OOB ACC | **1.000** ± 0.097 | 0.990 ± 0.097 | 0.999 ± 0.081 | 0.993 ± 0.078 | 0.995 ± 0.073 |
+| Random | 0.987 ± 0.067 | 0.989 ± 0.055 | 0.997 ± 0.058 | 1.002 ± 0.053 | 1.005 ± 0.046 |
+| Tree Descriptor | 0.987 ± 0.118 | **<ins>0.999</ins>** ± 0.100 | **<ins>1.007</ins>** ± 0.098 | **<ins>1.002</ins>** ± 0.084 | **<ins>1.007</ins>** ± 0.079 |
+| Leaf Profile | <ins>0.988</ins> ± 0.105 | 0.990 ± 0.093 | 0.994 ± 0.090 | 0.998 ± 0.080 | 1.003 ± 0.075 |
+| Feature Graph | 0.976 ± 0.101 | 0.986 ± 0.102 | 0.994 ± 0.096 | 0.999 ± 0.087 | 1.002 ± 0.085 |
+
+
+</p>
+</details>
 
 <h3>Resource Benchmark Reports</h3>
 
 These reports evaluate the computational requirements of decision tree representations. Generated analyses include:
 - Runtime comparisons for representation generation and similarity computation.
 - Memory usage comparisons for representation generation and similarity computation.
+<details>
+<summary><strong>Example plots</strong></summary>
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/fc5c8d86-8e74-4ce9-9029-b0660e5ff89a">
+    <img src="https://github.com/user-attachments/assets/fc5c8d86-8e74-4ce9-9029-b0660e5ff89a"
+         width="300"
+         alt="runtime_vs_random_forest_size_represent" />
+  </a>
+  <a href="https://github.com/user-attachments/assets/bb0c15a1-75e3-4d18-8a6b-b4ceeee5c0bc">
+    <img src="https://github.com/user-attachments/assets/bb0c15a1-75e3-4d18-8a6b-b4ceeee5c0bc"
+         width="300"
+         alt="peak_ram_kb_vs_random_forest_size_represent" />
+  </a>
+  <a href="https://github.com/user-attachments/assets/1f0649c1-dd5b-46ad-961f-be8fa7e9cd0c">
+    <img src="https://github.com/user-attachments/assets/1f0649c1-dd5b-46ad-961f-be8fa7e9cd0c"
+         width="300"
+         alt="rep_size_kb_vs_random_forest_size_represent" />
+  </a>
+</p>
+</details>
 
 All generated plots and tables are stored in the configured output directory. Individual reports can be enabled or disabled through the corresponding options in the [report config file](report_config.yaml).
 
