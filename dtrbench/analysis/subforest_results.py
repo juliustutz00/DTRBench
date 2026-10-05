@@ -607,6 +607,7 @@ def plot_mcc_representation_selection_strategy(
         return (
             r.replace("Tree Descriptor", "TD")
             .replace("Leaf Profile", "LP")
+            .replace("Prediction Profile", "PP")
             .replace("Feature Graph", "FG")
             .replace("Topological Forest", "TF")
             .replace("INDTree", "ID")
@@ -1000,6 +1001,7 @@ def plot_std_representation_selection_strategy(
 
     _pivot_std.index = [
         r.replace("Leaf Profile", "LP")
+        .replace("Prediction Profile", "PP")
         .replace("Tree Descriptor", "TD")
         .replace("Feature Graph", "FG")
         .replace("Topological Forest", "TF")
@@ -1010,6 +1012,7 @@ def plot_std_representation_selection_strategy(
     representation_order = [
         r.replace("Tree Descriptor", "TD")
         .replace("Leaf Profile", "LP")
+        .replace("Prediction Profile", "PP")
         .replace("Feature Graph", "FG")
         .replace("Topological Forest", "TF")
         .replace("INDTree", "ID")
@@ -1345,6 +1348,7 @@ def plot_kendalls_w_vs_config(
             {
                 "Tree Descriptor": "TD",
                 "Leaf Profile": "LP",
+                "Prediction Profile": "PP",
                 "Feature Graph": "FG",
                 "Topological Forest": "TF",
                 "INDTree": "ID",
@@ -1353,6 +1357,7 @@ def plot_kendalls_w_vs_config(
             else {
                 "Tree Descriptor": "TD",
                 "Leaf Profile": "LP",
+                "Prediction Profile": "PP",
                 "Feature Graph": "FG",
                 "Topological Forest": "TF",
                 "INDTree": "ID",
@@ -1376,6 +1381,7 @@ def plot_kendalls_w_vs_config(
     _rep_color_map = {
         "Tree Descriptor": palette[0],
         "Leaf Profile": palette[1],
+        "Prediction Profile": palette[5],
         "Feature Graph": palette[2],
         "Topological Forest": palette[3],
         "INDTree": palette[4],
@@ -1645,6 +1651,7 @@ def plot_kendalls_w_vs_config(
     _pivot_kw.index = [
         r.replace("Tree Descriptor", "TD")
         .replace("Leaf Profile", "LP")
+        .replace("Prediction Profile", "PP")
         .replace("Feature Graph", "FG")
         .replace("Topological Forest", "TF")
         .replace("INDTree", "ID")
@@ -1654,6 +1661,7 @@ def plot_kendalls_w_vs_config(
     representation_order = [
         r.replace("Tree Descriptor", "TD")
         .replace("Leaf Profile", "LP")
+        .replace("Prediction Profile", "PP")
         .replace("Feature Graph", "FG")
         .replace("Topological Forest", "TF")
         .replace("INDTree", "ID")
@@ -1922,6 +1930,7 @@ def plot_spearman_vs_subforest_size(
     _rep_color_map = {
         "Tree Descriptor": palette[0],
         "Leaf Profile": palette[1],
+        "Prediction Profile": palette[5],
         "Feature Graph": palette[2],
         "Topological Forest": palette[3],
         "INDTree": palette[4],
@@ -2378,6 +2387,7 @@ def print_config_vs_subforest_size(shared_values, output_dir, show_recovery):
         _rep_rename = {
             "Tree Descriptor": "TD",
             "Leaf Profile": "LP",
+            "Prediction Profile": "PP",
             "Feature Graph": "FG",
             "Topological Forest": "TF",
             "INDTree": "ID",
