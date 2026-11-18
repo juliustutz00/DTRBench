@@ -1,7 +1,9 @@
 """
- Combination-based (performance & diversity) subforest selection strategies for DTRBench.
+Combination-based (performance & diversity) subforest selection strategies for DTRBench.
 
 This module provides various combination-based (performance & diversity) strategies for selecting a subset of trees (subforest) from a random forest based on their pairwise distances.
+
+For all selection strategies presented here, users can always choose the method for computing the performance score. Options are "per_tree" or "subforest". "per_tree" uses per-tree MCC, while "subforest" uses subforest MCC after adding a candidate tree (slower).
 """
 
 from dataclasses import dataclass
